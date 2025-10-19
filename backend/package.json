@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "shamirs-secret-sharing": "^2.0.1"
+  }
+}
