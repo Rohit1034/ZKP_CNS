@@ -1,7 +1,16 @@
-// kdf.js
-export async function deriveRootKey(password, salt_kdf, kdf_params) {
+export async function deriveRootKey(password, saltBytes, kdf_params) {
+  console.log('deriveRootKey called with:', {
+    saltBytes_type: saltBytes?.constructor?.name,
+    saltBytes_length: saltBytes?.length,
+    kdf_params
+  });
+
   const { iter } = kdf_params;
   const enc = new TextEncoder();
+
+  if (!saltBytes || !saltBytes.length) {
+    throw new Error('Salt is empty or invalid');
+  }
 
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
@@ -14,13 +23,13 @@ export async function deriveRootKey(password, salt_kdf, kdf_params) {
   const derivedBits = await window.crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
-      salt: enc.encode(salt_kdf),
+      salt: saltBytes,
       iterations: iter,
       hash: 'SHA-256',
     },
     keyMaterial,
-    256 // 32 bytes
+    256
   );
 
-  return new Uint8Array(derivedBits); // rootKey
+  return new Uint8Array(derivedBits);
 }
