@@ -64,49 +64,48 @@ export default function Register() {
       return setStatus('Password must be at least 8 characters');
     if (password !== confirmPassword) return setStatus('Passwords do not match');
     
-
     try {
-    setStatus('Generating PBKDF2 root key...');
+      setStatus('Generating PBKDF2 root key...');
 
-    //  1. Generate random salt
-    const saltArray = crypto.getRandomValues(new Uint8Array(16));
-    const saltBase64 = btoa(String.fromCharCode(...saltArray));
+      // 1. Generate random salt
+      const saltArray = crypto.getRandomValues(new Uint8Array(16));
+      const saltBase64 = btoa(String.fromCharCode(...saltArray));
 
-    // 2. Use PBKDF2 parameters
-    const kdf_params = { alg: 'PBKDF2', iter: 100000 };
+      // 2. Use PBKDF2 parameters
+      const kdf_params = { alg: 'PBKDF2', iter: 100000 };
 
-    // 3. Derive root key using PBKDF2
-    const rootKey = await deriveRootKey(password, saltBase64, kdf_params);
+      // 3. Derive root key using PBKDF2
+      const rootKey = await deriveRootKey(password, saltBase64, kdf_params);
 
-    //  4. Compute public key Y (no proof generation at registration)
-    const { publicY } = await computePublicY(rootKey);
+      // 4. Compute public key Y (no proof generation at registration)
+      const { publicY } = await computePublicY(rootKey);
 
-    // 5. Store locally for login recomputation
-    localStorage.setItem(`salt_kdf_${username}`, saltBase64);
-    localStorage.setItem(`kdf_params_${username}`, JSON.stringify(kdf_params));
+      // 5. Store locally for login recomputation
+      localStorage.setItem(`salt_kdf_${username}`, saltBase64);
+      localStorage.setItem(`kdf_params_${username}`, JSON.stringify(kdf_params));
 
-    //  6. Prepare payload
-    const payload = {
-      username,
-      publicY,
-      salt_kdf: saltBase64,
-      kdf_params,
-      vault_blob: null, // keep your structure consistent
-    };
+      // 6. Prepare payload
+      const payload = {
+        username,
+        publicY,
+        salt_kdf: saltBase64,
+        kdf_params,
+        vault_blob: null,
+      };
 
-    //  7. Register with backend
-    const res = await register(payload);
+      // 7. Register with backend
+      const res = await register(payload);
 
-    if (res.status === 'success') {
-      setStatus('Registration successful!');
-      setTimeout(() => navigate('/login'), 1500);
-    } else {
-      setStatus(res.message || 'Registration failed');
+      if (res.status === 'success') {
+        setStatus('Registration successful!');
+        setTimeout(() => navigate('/login'), 1500);
+      } else {
+        setStatus(res.message || 'Registration failed');
+      }
+    } catch (err) {
+      setStatus('Error: ' + err.message);
     }
-  } catch (err) {
-    setStatus('Error: ' + err.message);
-  }
-};
+  };
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${
@@ -321,8 +320,6 @@ export default function Register() {
               </span>
             </div>
 
-             
-
             {/* Status Message */}
             {status && (
               <div className={`rounded-xl p-3 mt-2 text-sm font-semibold ${
@@ -355,6 +352,21 @@ export default function Register() {
               }`}
             >
               Already have an account? <span className="underline">Sign in</span>
+            </button>
+          </div>
+
+          {/* ✅ Add Recovery Button */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => navigate('/social-recovery')}
+              className={`w-full py-3.5 mt-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-white ${
+                darkMode 
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
+                  : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+              }`}
+            >
+              <Shield className="w-5 h-5" />
+              Add Recovery
             </button>
           </div>
         </div>

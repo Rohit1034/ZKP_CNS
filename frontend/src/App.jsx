@@ -18,7 +18,8 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/social-recovery" element={<SocialRecoveryWalletPage />} />
+      <Route path = "/register" element={<RegistrationPage />} />
+      <Route path="/social-recovery" element={<SocialRecoveryWalletPage />} />
       </Routes>
     </Router>
   );
