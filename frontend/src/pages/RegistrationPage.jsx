@@ -97,8 +97,9 @@ export default function Register() {
       const res = await register(payload);
 
     if (res.status === 'success') {
-      setStatus('Registration successful!');
-      setTimeout(() => navigate('/social-recovery'), 1500);
+      setStatus('Registration successful! Setting up social recovery...');
+      localStorage.setItem('current_user', username);
+      setTimeout(() => navigate('/wallet-setup'), 1500);
     } else {
       setStatus(res.message || 'Registration failed');
     }
@@ -357,20 +358,6 @@ export default function Register() {
             </button>
           </div>
 
-          {/* ✅ Add Recovery Button */}
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => navigate('/social-recovery')}
-              className={`w-full py-3.5 mt-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-white ${
-                darkMode 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
-                  : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-              }`}
-            >
-              <Shield className="w-5 h-5" />
-              Add Recovery
-            </button>
-          </div>
         </div>
       </div>
     </div>

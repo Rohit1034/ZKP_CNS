@@ -6,6 +6,8 @@ import LandingPage from './pages/homePage';
 import { Buffer } from 'buffer';
 import Dashboard from './pages/vault';
 import SocialRecoveryWalletPage from './pages/SocialRecoveryWalletPage';
+import WalletSetupPage from './pages/WalletSetupPage';
+import WalletRecoveryPage from './pages/WalletRecoveryPage';
 window.Buffer = Buffer;
 
 export default function App() {
@@ -18,12 +20,14 @@ export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/register" element={<RegistrationPage />} />
         <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
-        <Route path="/" element={<LandingPage />} />
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="/wallet-setup" element={<WalletSetupPage />} />
+        <Route path="/wallet-recovery" element={<WalletRecoveryPage />} />
         <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/social-recovery" element={<SocialRecoveryWalletPage />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );

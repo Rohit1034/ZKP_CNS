@@ -256,8 +256,20 @@ export default function Login({ onLoginSuccess }) {
             )}
           </form>
 
+          {/* Forgot Password Link */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => navigate('/wallet-recovery')}
+              className={`text-sm font-medium transition-colors ${
+                darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-green-600 hover:text-green-700'
+              }`}
+            >
+              Forgot your password? <span className="underline">Recover with social recovery</span>
+            </button>
+          </div>
+
           {/* Register Link */}
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-center">
             <button
               onClick={() => navigate('/register')}
               className={`text-sm font-semibold transition-colors ${
