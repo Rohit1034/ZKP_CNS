@@ -846,26 +846,26 @@ export default function Dashboard() {
       )}
 
       {/* Password Generator Modal */}
-      {showPasswordGenerator && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`w-full max-w-md rounded-xl p-6 ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Password Generator
-              </h2>
-              <button
-                onClick={() => setShowPasswordGenerator(false)}
-                className={`p-2 rounded-lg transition ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
-              >
-                <X className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-              </button>
-            </div>
+        {showPasswordGenerator && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className={`w-full max-w-md rounded-xl p-6 ${
+          darkMode ? 'bg-gray-800' : 'bg-white'
+            }`}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              Password Generator
+            </h2>
+            <button
+              onClick={() => setShowPasswordGenerator(false)}
+              className={`p-2 rounded-lg transition ${
+            darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+              }`}
+            >
+              <X className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+            </button>
+          </div>
 
-            {/* Generated Password Display */}
+          {/* Generated Password Display */}
             <div className={`p-4 rounded-lg mb-6 ${
               darkMode ? 'bg-gray-700' : 'bg-gray-100'
             }`}>
