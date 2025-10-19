@@ -1,6 +1,13 @@
 # ZeroVault — Zero-Knowledge Password Manager
 
-![ZeroVault Hero](docs/hero.png)
+<img width="1900" height="872" alt="image" src="https://github.com/user-attachments/assets/50d69542-d449-404a-a747-9fe965701944" />
+
+<img width="1919" height="781" alt="image" src="https://github.com/user-attachments/assets/7ee4f325-2a3b-4c6d-b21b-0e493eb9b627" />
+
+<img width="1897" height="873" alt="image" src="https://github.com/user-attachments/assets/8b0f8ab0-2e4c-4e1a-a00a-d43a6c8f388c" />
+
+<img width="1901" height="870" alt="image" src="https://github.com/user-attachments/assets/dd8c31ec-588a-41d2-8e29-9ee4f1b6068f" />
+
 
 ZeroVault is a privacy-first password manager that demonstrates zero-knowledge authentication (ZKA) and zero-knowledge proofs (ZKP) at the application layer. The vault is built as a full-stack demo: a React/Vite frontend and a Flask backend with MongoDB. The design keeps user secrets encrypted on the client and uses cryptographic proofs (EC-Schnorr and related primitives) so the server never learns raw passwords or master keys.
 
