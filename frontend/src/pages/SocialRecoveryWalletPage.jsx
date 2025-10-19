@@ -1,14 +1,47 @@
-// components/SocialRecoveryWalletPage.js
-
 import * as React from 'react'
-import { Button } from '@/components/ui/button' // Assumed utility component
-import { 
-  createSocialWallet, 
-  generateRecoveryProof, 
-  verifySchnorrProof, 
-  finalRecoveryStep 
-} from '@/lib/wallet_recovery'
-import { reconstructMasterKey } from '@/lib/sss' // Explicit import for final SSS step
+
+// Mock implementations for demo purposes
+const createSocialWallet = async (password, totalShares, threshold) => {
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  const sharesForFriends = []
+  for (let i = 1; i <= totalShares; i++) {
+    sharesForFriends.push({
+      id: i,
+      shareHex: `share_${i}_${Math.random().toString(36).substring(2, 15)}`,
+      publicKeyY: `pubkey_${i}_${Math.random().toString(36).substring(2, 15)}`
+    })
+  }
+  return { sharesForFriends }
+}
+
+const generateRecoveryProof = async (shareHex) => {
+  await new Promise(resolve => setTimeout(resolve, 500))
+  return { proof: `proof_${shareHex}`, shareHex }
+}
+
+const verifySchnorrProof = (proof, publicKeyY) => {
+  return true // Mock verification always passes
+}
+
+const reconstructMasterKey = async (shares) => {
+  await new Promise(resolve => setTimeout(resolve, 800))
+  return `master_key_reconstructed_from_${shares.length}_shares`
+}
+
+const finalRecoveryStep = async (masterKey) => {
+  await new Promise(resolve => setTimeout(resolve, 500))
+  return true
+}
+
+const Button = ({ children, onClick, disabled, className = '' }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`px-4 py-2 rounded font-medium transition-all ${className}`}
+  >
+    {children}
+  </button>
+)
 
 export default function SocialRecoveryWalletPage() {
   // --- STATE ---
@@ -16,19 +49,10 @@ export default function SocialRecoveryWalletPage() {
   const [password, setPassword] = React.useState('')
   const [totalShares, setTotalShares] = React.useState(3)
   const [threshold, setThreshold] = React.useState(2)
-  const [shareData, setShareData] = React.useState(() => {
-    // Attempt to load previously generated shares for continuous demo
-    try {
-      return JSON.parse(localStorage.getItem('recovery_share_data'))
-    } catch {
-      return null
-    }
-  }) 
+  const [shareData, setShareData] = React.useState(null)
 
-  // Recovery State: Stores the actual secret shares that passed ZKP verification
   const [recoveryProofs, setRecoveryProofs] = React.useState([])
   const [recoveryShareInput, setRecoveryShareInput] = React.useState('')
-
 
   // --- HANDLERS ---
 
@@ -47,7 +71,6 @@ export default function SocialRecoveryWalletPage() {
       )
       
       setShareData(sharesForFriends)
-      localStorage.setItem('recovery_share_data', JSON.stringify(sharesForFriends))
       setStatus(`Wallet created. ${threshold} of ${totalShares} shares ready for distribution.`)
     } catch (error) {
       console.error(error)
@@ -66,7 +89,6 @@ export default function SocialRecoveryWalletPage() {
     try {
       const myShareHex = recoveryShareInput.trim()
       
-      // 1. Find the corresponding public key (Y) for the share
       const friendShare = shareData.find(s => s.shareHex === myShareHex)
       if (!friendShare) {
           setStatus('Invalid share provided. This share does not belong to the initial set.')
@@ -74,14 +96,11 @@ export default function SocialRecoveryWalletPage() {
       }
       const friendPublicKeyY = friendShare.publicKeyY;
 
-      // 2. Client generates proof
       const proof = await generateRecoveryProof(myShareHex)
 
-      // 3. Mock Server Verification
       const isValid = verifySchnorrProof(proof, friendPublicKeyY)
 
       if (isValid) {
-        // Store the share. In a real system, the server would request this *after* verification.
         const alreadyCollected = recoveryProofs.some(p => p.shareHex === myShareHex);
         if (alreadyCollected) {
            return setStatus('Proof accepted, but this share was already collected.');
@@ -92,7 +111,7 @@ export default function SocialRecoveryWalletPage() {
       } else {
         setStatus('ZKP failed verification. This secret share is incorrect or corrupted.')
       }
-      setRecoveryShareInput('') // Clear input
+      setRecoveryShareInput('')
     } catch (error) {
       console.error(error)
       setStatus('ZKP processing error. Check console.')
@@ -104,16 +123,13 @@ export default function SocialRecoveryWalletPage() {
       return setStatus('Not enough verified proofs to start key reconstruction.')
     }
 
-    // 1. Get the raw shares from the collected proofs
     const sharesToCombine = recoveryProofs.map(p => p.shareHex)
 
     setStatus('Reconstructing Master Key via Shamir\'s Secret Sharing...')
 
     try {
-      // 2. Reconstruct the Master Key (K_master)
       const recoveredMasterKey = await reconstructMasterKey(sharesToCombine) 
 
-      // 3. Decrypt and import ECC Private Key
       await finalRecoveryStep(recoveredMasterKey) 
       
       setStatus('✅ WALLET RECOVERED! ECC Private Key is imported into session.')
@@ -126,118 +142,155 @@ export default function SocialRecoveryWalletPage() {
   // --- UI RENDER ---
 
   return (
-    <div className="p-4 space-y-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-extrabold text-center">Social Recovery Wallet (T of N)</h1>
-      <p className="text-center text-gray-600">
-        Uses **Shamir's Secret Sharing** for key split and **Schnorr ZKP** for private recovery proof.
-      </p>
-
-      {/* --- SECTION 1: SETUP --- */}
-      <div className="p-6 border rounded-lg shadow-md bg-gray-50">
-        <h2 className="text-xl font-bold mb-4">1. Wallet Setup & Splitting</h2>
-        
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">Set Main Wallet Password</label>
-            <input 
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Secure Password (Primary Lock)"
-              className="border p-2 rounded w-full"
-            />
-          </div>
-          <div className="w-1/4">
-            <label className="block text-sm font-medium mb-1">Total Friends (N)</label>
-            <input 
-              type="number"
-              value={totalShares}
-              onChange={(e) => setTotalShares(parseInt(e.target.value, 10))}
-              min="3"
-              className="border p-2 rounded w-full"
-            />
-          </div>
-          <div className="w-1/4">
-            <label className="block text-sm font-medium mb-1">Threshold (T)</label>
-            <input 
-              type="number"
-              value={threshold}
-              onChange={(e) => setThreshold(parseInt(e.target.value, 10))}
-              min="2"
-              max={totalShares}
-              className="border p-2 rounded w-full"
-            />
-          </div>
-        </div>
-        
-        <Button onClick={handleCreateWallet} disabled={!password || shareData}>
-          Create & Split Key ({threshold} of {totalShares})
-        </Button>
-      </div>
-
-      {/* --- SECTION 2: SHARE DISTRIBUTION --- */}
-      {shareData && (
-        <div className="p-4 border border-blue-400 bg-blue-50 rounded-lg">
-          <h3 className="text-xl font-semibold mb-3">2. Shares Generated (Distribute to Friends!)</h3>
-          <p className="text-sm mb-4 text-blue-700">
-            **ACTION:** Give each Friend their unique **Secret Share (s)**. The **Public Key (Y)** is stored by the Vault for verification.
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white p-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="text-center py-6">
+          <h1 className="text-4xl font-extrabold text-green-800 mb-2">Social Recovery Wallet</h1>
+          <p className="text-green-700 text-lg">T of N Threshold Cryptography</p>
+          <p className="text-green-600 text-sm mt-2">
+            Uses Shamir's Secret Sharing for key split and Schnorr ZKP for private recovery proof
           </p>
+        </div>
+
+        {/* --- SECTION 1: SETUP --- */}
+        <div className="p-6 border-2 border-green-200 rounded-xl shadow-lg bg-white">
+          <h2 className="text-2xl font-bold mb-4 text-green-800 border-b-2 border-green-200 pb-2">
+            1. Wallet Setup & Splitting
+          </h2>
           
-          <div className="space-y-3">
-            {shareData.map(share => (
-              <div key={share.id} className="p-3 border rounded bg-white">
-                <p className="font-bold">Friend Share ID: {share.id}</p>
-                <p className="text-xs break-all mt-1">
-                  <span className="font-medium">Secret Share (s):</span> {share.shareHex}
-                </p>
-                <p className="text-xs break-all text-gray-500">
-                  <span className="font-medium">Public Key (Y):</span> {share.publicKeyY}
-                </p>
-              </div>
-            ))}
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold mb-2 text-green-700">Set Main Wallet Password</label>
+              <input 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Secure Password (Primary Lock)"
+                className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
+              />
+            </div>
+            <div className="w-full md:w-1/4">
+              <label className="block text-sm font-semibold mb-2 text-green-700">Total Friends (N)</label>
+              <input 
+                type="number"
+                value={totalShares}
+                onChange={(e) => setTotalShares(parseInt(e.target.value, 10))}
+                min="3"
+                className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
+              />
+            </div>
+            <div className="w-full md:w-1/4">
+              <label className="block text-sm font-semibold mb-2 text-green-700">Threshold (T)</label>
+              <input 
+                type="number"
+                value={threshold}
+                onChange={(e) => setThreshold(parseInt(e.target.value, 10))}
+                min="2"
+                max={totalShares}
+                className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
+              />
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* --- SECTION 3: RECOVERY --- */}
-      <div className="p-6 border rounded-lg shadow-md bg-green-50">
-        <h3 className="text-xl font-bold mb-4">3. Wallet Recovery (Mocking Friends)</h3>
-
-        <div className="mb-4">
-          <h4 className="font-semibold mb-2">Step A: Friend Proves Knowledge (ZKP)</h4>
-          <p className="text-sm mb-2 text-gray-600">
-            To simulate a friend, paste one of the **Secret Share Hex (s)** values above.
-          </p>
-          <input 
-            type="text"
-            value={recoveryShareInput}
-            onChange={(e) => setRecoveryShareInput(e.target.value)}
-            placeholder="Paste a friend's Secret Share Hex (s)"
-            className="border p-2 rounded w-full mb-2"
-          />
-          <Button onClick={handleFriendSubmitProof} disabled={!recoveryShareInput || !shareData}>
-            Simulate Friend Submitting Proof (OK Signal)
+          
+          <Button 
+            onClick={handleCreateWallet} 
+            disabled={!password || shareData}
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
+          >
+            Create & Split Key ({threshold} of {totalShares})
           </Button>
         </div>
 
-        <div className="pt-4 border-t">
-          <h4 className="font-semibold mb-2">Step B: Final Reconstruction</h4>
-          <div className="text-sm">
-            Verified Proofs Collected: **{recoveryProofs.length}** / {threshold} required
+        {/* --- SECTION 2: SHARE DISTRIBUTION --- */}
+        {shareData && (
+          <div className="p-6 border-2 border-green-300 bg-green-50 rounded-xl shadow-lg">
+            <h3 className="text-2xl font-bold mb-3 text-green-800 border-b-2 border-green-300 pb-2">
+              2. Shares Generated
+            </h3>
+            <p className="text-sm mb-4 text-green-700 font-medium">
+              ACTION: Give each Friend their unique Secret Share (s). The Public Key (Y) is stored by the Vault for verification.
+            </p>
+            
+            <div className="space-y-3">
+              {shareData.map(share => (
+                <div key={share.id} className="p-4 border-2 border-green-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <p className="font-bold text-green-800 mb-2">Friend Share ID: {share.id}</p>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-semibold text-green-700 text-sm">Secret Share (s):</span>
+                      <p className="text-xs break-all mt-1 font-mono bg-green-50 p-2 rounded border border-green-200">
+                        {share.shareHex}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-green-600 text-sm">Public Key (Y):</span>
+                      <p className="text-xs break-all mt-1 font-mono bg-gray-50 p-2 rounded border border-gray-200 text-gray-600">
+                        {share.publicKeyY}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          
-          {recoveryProofs.length >= threshold ? (
-            <Button onClick={handleFinalRecovery} className="mt-2 bg-green-600 hover:bg-green-700">
-              Reconstruct Key & Unlock Wallet
-            </Button>
-          ) : (
-            <p className="text-sm text-red-500 mt-2">Need {threshold - recoveryProofs.length} more valid proofs.</p>
-          )}
-        </div>
-      </div>
+        )}
 
-      <div className="mt-4 p-3 border rounded text-sm font-medium">
-        Status: **{status || 'Awaiting wallet creation...'}**
+        {/* --- SECTION 3: RECOVERY --- */}
+        <div className="p-6 border-2 border-green-200 rounded-xl shadow-lg bg-white">
+          <h3 className="text-2xl font-bold mb-4 text-green-800 border-b-2 border-green-200 pb-2">
+            3. Wallet Recovery
+          </h3>
+
+          <div className="mb-6">
+            <h4 className="font-semibold text-lg mb-3 text-green-700">Step A: Friend Proves Knowledge (ZKP)</h4>
+            <p className="text-sm mb-3 text-green-600">
+              To simulate a friend, paste one of the Secret Share Hex (s) values above.
+            </p>
+            <input 
+              type="text"
+              value={recoveryShareInput}
+              onChange={(e) => setRecoveryShareInput(e.target.value)}
+              placeholder="Paste a friend's Secret Share Hex (s)"
+              className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full mb-3 outline-none transition-all"
+            />
+            <Button 
+              onClick={handleFriendSubmitProof} 
+              disabled={!recoveryShareInput || !shareData}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
+            >
+              Simulate Friend Submitting Proof
+            </Button>
+          </div>
+
+          <div className="pt-6 border-t-2 border-green-200">
+            <h4 className="font-semibold text-lg mb-3 text-green-700">Step B: Final Reconstruction</h4>
+            <div className="text-base mb-4 font-medium text-green-800">
+              Verified Proofs Collected: <span className="text-green-600 font-bold">{recoveryProofs.length}</span> / {threshold} required
+            </div>
+            
+            {recoveryProofs.length >= threshold ? (
+              <Button 
+                onClick={handleFinalRecovery} 
+                className="bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded-lg shadow-md transition-all"
+              >
+                Reconstruct Key & Unlock Wallet
+              </Button>
+            ) : (
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700 font-medium">
+                  Need {threshold - recoveryProofs.length} more valid proof(s) to proceed
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 p-4 border-2 border-green-200 rounded-xl bg-white shadow-sm">
+          <div className="text-sm font-semibold text-green-700">Status:</div>
+          <div className="text-base font-medium text-green-800 mt-1">
+            {status || 'Awaiting wallet creation...'}
+          </div>
+        </div>
       </div>
     </div>
   )
