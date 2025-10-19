@@ -99,7 +99,7 @@ export default function Register() {
 
     if (res.status === 'success') {
       setStatus('Registration successful!');
-      setTimeout(() => navigate('/login'), 1500);
+      setTimeout(() => navigate('/social-recovery'), 1500);
     } else {
       setStatus(res.message || 'Registration failed');
     }
@@ -334,6 +334,7 @@ export default function Register() {
 
             {/* Submit Button */}
             <button
+              
               type="submit"
               className={`w-full py-3.5 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 ${
                 darkMode 

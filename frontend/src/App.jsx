@@ -18,6 +18,11 @@ export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/register" element={<RegistrationPage />} />
+        <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/social-recovery" element={<SocialRecoveryWalletPage />} />
       </Routes>
     </Router>

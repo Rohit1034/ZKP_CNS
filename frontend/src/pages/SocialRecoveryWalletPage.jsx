@@ -1,37 +1,7 @@
 import * as React from 'react'
-
-// Mock implementations for demo purposes
-const createSocialWallet = async (password, totalShares, threshold) => {
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  const sharesForFriends = []
-  for (let i = 1; i <= totalShares; i++) {
-    sharesForFriends.push({
-      id: i,
-      shareHex: `share_${i}_${Math.random().toString(36).substring(2, 15)}`,
-      publicKeyY: `pubkey_${i}_${Math.random().toString(36).substring(2, 15)}`
-    })
-  }
-  return { sharesForFriends }
-}
-
-const generateRecoveryProof = async (shareHex) => {
-  await new Promise(resolve => setTimeout(resolve, 500))
-  return { proof: `proof_${shareHex}`, shareHex }
-}
-
-const verifySchnorrProof = (proof, publicKeyY) => {
-  return true // Mock verification always passes
-}
-
-const reconstructMasterKey = async (shares) => {
-  await new Promise(resolve => setTimeout(resolve, 800))
-  return `master_key_reconstructed_from_${shares.length}_shares`
-}
-
-const finalRecoveryStep = async (masterKey) => {
-  await new Promise(resolve => setTimeout(resolve, 500))
-  return true
-}
+import { createSocialWallet, generateRecoveryProof, verifySchnorrProof, finalRecoveryStep } from '../lib/wallet_recovery'
+import { reconstructMasterKey } from '../lib/sss'
+import { sendSharesEmail } from '../utils/api'
 
 const Button = ({ children, onClick, disabled, className = '' }) => (
   <button
@@ -50,6 +20,8 @@ export default function SocialRecoveryWalletPage() {
   const [totalShares, setTotalShares] = React.useState(3)
   const [threshold, setThreshold] = React.useState(2)
   const [shareData, setShareData] = React.useState(null)
+  const [senderEmail, setSenderEmail] = React.useState('')
+  const [friendEmails, setFriendEmails] = React.useState(['', '', ''])
 
   const [recoveryProofs, setRecoveryProofs] = React.useState([])
   const [recoveryShareInput, setRecoveryShareInput] = React.useState('')
@@ -61,6 +33,9 @@ export default function SocialRecoveryWalletPage() {
     if (totalShares < threshold || threshold < 2) {
       return setStatus('Error: Threshold (T) must be >= 2 and <= Total Shares (N).')
     }
+    if (friendEmails.slice(0, totalShares).some(e => !e || !e.includes('@'))) {
+      return setStatus('Please enter valid friend emails for all selected N.')
+    }
     
     setStatus('Generating ECC Keypair and splitting Master Key...')
     try {
@@ -71,7 +46,23 @@ export default function SocialRecoveryWalletPage() {
       )
       
       setShareData(sharesForFriends)
-      setStatus(`Wallet created. ${threshold} of ${totalShares} shares ready for distribution.`)
+      setStatus(`Wallet created. ${threshold} of ${totalShares} shares ready for distribution. Sending emails...`)
+
+      // Prepare recipients payload
+      const recipients = sharesForFriends.slice(0, totalShares).map((s, idx) => ({
+        email: friendEmails[idx] || '',
+        id: s.id,
+        shareHex: s.shareHex,
+        publicKeyY: s.publicKeyY,
+      }))
+
+  const username = localStorage.getItem('current_user') || ''
+      const resp = await sendSharesEmail({ recipients, fromEmail: senderEmail, username })
+      if (resp.status === 'success') {
+        setStatus(`Emails sent to ${resp.sent} friend(s).`)
+      } else {
+        setStatus(`Wallet created, but emailing failed: ${resp.message || 'Unknown error'}`)
+      }
     } catch (error) {
       console.error(error)
       setStatus('Wallet creation failed: ' + error.message)
@@ -142,7 +133,16 @@ export default function SocialRecoveryWalletPage() {
   // --- UI RENDER ---
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white p-4 relative">
+      {/* Back Button - Top Left */}
+      <button
+        onClick={() => window.history.back()}
+        aria-label="Go back"
+        className="fixed top-6 left-6 z-50 w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 text-slate-700 border border-gray-200 shadow-sm hover:bg-gray-200 active:bg-gray-300 transition-colors"
+      >
+        <span className="text-xl font-bold leading-none">&larr;</span>
+      </button>
+      
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center py-6">
           <h1 className="text-4xl font-extrabold text-green-800 mb-2">Social Recovery Wallet</h1>
@@ -169,6 +169,16 @@ export default function SocialRecoveryWalletPage() {
                 className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
               />
             </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold mb-2 text-green-700">Your Email (From)</label>
+              <input
+                type="email"
+                value={senderEmail}
+                onChange={(e) => setSenderEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
+              />
+            </div>
             <div className="w-full md:w-1/4">
               <label className="block text-sm font-semibold mb-2 text-green-700">Total Friends (N)</label>
               <input 
@@ -190,6 +200,26 @@ export default function SocialRecoveryWalletPage() {
                 className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
               />
             </div>
+          </div>
+
+          {/* Friend emails */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {Array.from({ length: totalShares }).map((_, idx) => (
+              <div key={idx}>
+                <label className="block text-sm font-semibold mb-2 text-green-700">Friend {idx + 1} Email</label>
+                <input
+                  type="email"
+                  value={friendEmails[idx] || ''}
+                  onChange={(e) => {
+                    const next = [...friendEmails]
+                    next[idx] = e.target.value
+                    setFriendEmails(next)
+                  }}
+                  placeholder={`friend${idx + 1}@example.com`}
+                  className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
+                />
+              </div>
+            ))}
           </div>
           
           <Button 

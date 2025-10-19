@@ -1,5 +1,13 @@
 {
+  "name": "zkp_cns-backend",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start:mailer": "node ./mailer/server.js"
+  },
   "dependencies": {
+    "express": "^4.21.1",
+    "cors": "^2.8.5",
     "nodemailer": "^7.0.9",
     "shamirs-secret-sharing": "^2.0.1"
   }
