@@ -21,15 +21,6 @@ This README is written for presentation and evaluation. It covers the project's 
 - No raw passwords on the server: server stores verifiable public values and encrypted blobs only.
 - Simple, auditable stack: React + Vite frontend, Flask backend, MongoDB for metadata.
 
-## Screenshots
-
-Add the two provided screenshots in `docs/` as `hero.png` and `dashboard.png`. They are referenced in this README so they render on GitHub / in slides.
-
-- `docs/hero.png` — marketing/landing hero image (use the attached large landing image)
-- `docs/dashboard.png` — in-app dashboard screenshot (use the attached dashboard image)
-
-If the images are not present, replace the links above with your own or create `docs/` and add them.
-
 ## Architecture (at a glance)
 
 - Frontend (frontend/)
