@@ -348,6 +348,7 @@ def get_vault():
     return jsonify({"status": "success", "vault_blob": vault_blob})
 
 
+
 @auth_bp.route("/vault", methods=["POST"])
 def update_vault():
     """
@@ -374,9 +375,11 @@ def update_vault():
 
         log_event("VAULT_UPDATE", username=username_norm, details="User updated vault.")
         return jsonify({"status": "success", "message": "Vault updated successfully"})
+
     except Exception as e:
         log_event("VAULT_UPDATE_ERROR", username=username_norm, details=str(e))
         return jsonify({"status": "error", "message": "Failed to update vault", "detail": str(e)}), 500
+
 
 @auth_bp.route("/vault/entries", methods=["GET"])
 def get_plain_entries():
@@ -418,11 +421,16 @@ def add_plain_entry():
     # --- FIX: use username_norm for update query ---
     user, username_norm = find_user_by_username(username)
     try:
-        users.update_one({"username_norm": username_norm}, {"$push": {"plain_entries": entry}, "$set": {"updated_at": datetime.utcnow()}}, upsert=True)
+        users.update_one(
+            {"username_norm": username_norm},
+            {"$push": {"plain_entries": entry}, "$set": {"updated_at": datetime.utcnow()}},
+            upsert=True
+        )
         log_event("PLAIN_ENTRY_ADD", username=username_norm, details=f"Added plain entry {entry.get('id')}")
         return jsonify({"status": "success", "message": "Entry saved"}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 
