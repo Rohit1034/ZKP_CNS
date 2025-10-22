@@ -24,9 +24,20 @@ export async function splitMasterKey(masterKey, total, threshold) {
   const keyBuffer = await crypto.subtle.exportKey('raw', masterKey)
   console.log('🔍 SSS Split: Exported raw key, length:', keyBuffer.byteLength, 'bytes')
   
-  // Ensure only 32 bytes (256 bits) are used for SSS
+  // Ensure key is exactly 32 bytes (256 bits) for SSS
   const keyBytes = new Uint8Array(keyBuffer)
-  const key32 = keyBytes.length > 32 ? keyBytes.slice(0, 32) : keyBytes;
+  let key32;
+  if (keyBytes.length === 32) {
+    key32 = keyBytes;
+  } else if (keyBytes.length < 32) {
+    // Pad with zeros to 32 bytes
+    key32 = new Uint8Array(32);
+    key32.set(keyBytes);
+    console.warn('⚠️ SSS Split: Key is shorter than 32 bytes, padded with zeros');
+  } else {
+    // Key is longer than 32 bytes, throw error
+    throw new Error('Master key is longer than 32 bytes (256 bits); refusing to truncate. Please provide a 32-byte key.');
+  }
   console.log('🔍 SSS Split: Using', key32.length, 'bytes for splitting')
   console.log('🔍 SSS Split: Key (hex):', Buffer.from(key32).toString('hex'))
   
