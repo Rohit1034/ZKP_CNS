@@ -1,15 +1,26 @@
-import  { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Lock, Eye, EyeOff, Shield, Sun, Moon, LogOut, Plus, Search, 
-  Edit2, Trash2, Copy, Globe, Mail, CreditCard, Key, Settings, Home,
-  X, Check, AlertCircle, RefreshCw, Filter, ChevronDown, Calendar
-} from 'lucide-react';
-import { decryptVault, deriveVaultKey, encryptVault } from '@/utils/vault';
-import { getVault, updateVault, addPlainEntry, getPlainEntries, deletePlainEntry, logout } from '@/utils/api';
+import { getVault, logout, updateVault } from '@/utils/api';
 import { deriveRootKey } from '@/utils/kdf';
-
-
+import { decryptVault, deriveVaultKey, encryptVault } from '@/utils/vault';
+import {
+  Check,
+  Copy,
+  CreditCard,
+  Eye, EyeOff,
+  Globe,
+  Home,
+  Key,
+  LogOut,
+  Mail,
+  Moon,
+  Plus,
+  RefreshCw,
+  Search,
+  Shield, Sun,
+  Trash2,
+  X
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -18,7 +29,7 @@ export default function Dashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPasswordGenerator, setShowPasswordGenerator] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  
+
   // REAL VAULT DATA - replace mock
   const [passwords, setPasswords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,43 +64,61 @@ export default function Dashboard() {
     loadVaultData();
   }, []);
 
+  // --- UPDATED: loadVaultData now prefers encrypted vault_blob only
   const loadVaultData = async () => {
     try {
       setLoading(true);
       const sessionToken = localStorage.getItem('session_token');
-      const username = localStorage.getItem('current_user');
-      
+      let username = localStorage.getItem('current_user') || '';
+      const normalizedUsername = username.trim().toLowerCase();
+      username = normalizedUsername; // ensure uniform use
+
+
+      console.log('Loading vault for user:', username);
+      console.log('All localStorage keys:', Object.keys(localStorage));
+
       if (!sessionToken || !username) {
         navigate('/login');
         return;
       }
 
-      // Try loading persisted plaintext entries first (stored without encryption)
+      // Fetch encrypted vault from server
+      let vaultResponse;
       try {
-        const plainResp = await getPlainEntries();
-        if (plainResp && plainResp.status === 'success' && Array.isArray(plainResp.entries)) {
-          setPasswords(plainResp.entries || []);
-          setLoading(false);
-          return; // prefer plain entries as the source of truth for the UI
-        }
+        vaultResponse = await getVault();
+        console.log('Vault response:', vaultResponse);
       } catch (e) {
-        // ignore and fallback to encrypted vault
-        console.warn('Failed to load plain entries, falling back to encrypted vault:', e);
+        console.error('Failed to call getVault:', e);
+        setPasswords([]);
+        return;
       }
-      // Get encrypted vault from server
-      const vaultResponse = await getVault();
-      if (vaultResponse.status !== 'success') {
-        throw new Error('Failed to fetch vault');
+
+      if (!vaultResponse || vaultResponse.status !== 'success' || !vaultResponse.vault_blob) {
+        console.log('No vault blob found, starting with empty vault');
+        setPasswords([]);
+        return;
       }
 
       // Get stored keys for decryption
-      const salt_kdf = localStorage.getItem(`salt_kdf_${username}`);
-      const kdf_params = JSON.parse(localStorage.getItem(`kdf_params_${username}`));
+      const salt_kdf = localStorage.getItem(`salt_kdf_${normalizedUsername}`);
+      const raw = localStorage.getItem(`kdf_params_${normalizedUsername}`);
+
+      const kdf_params = raw ? JSON.parse(raw) : null;
       const password = sessionStorage.getItem('temp_password');
-      
+
+      console.log('Retrieved decryption data:', {
+        username,
+        salt_kdf: salt_kdf ? 'EXISTS' : 'MISSING',
+        kdf_params,
+        password: password ? 'EXISTS' : 'MISSING'
+      });
+
       if (!salt_kdf || !kdf_params || !password) {
-        // If the session doesn't have the in-memory master password, prompt the user to re-enter it
-        console.warn('Missing decryption data; prompting for master password');
+        console.warn('Missing decryption data:', {
+          hasSalt: !!salt_kdf,
+          hasKdfParams: !!kdf_params,
+          hasPassword: !!password
+        });
         setShowPasswordPrompt(true);
         return;
       }
@@ -98,49 +127,126 @@ export default function Dashboard() {
       const saltBytes = Uint8Array.from(atob(salt_kdf), c => c.charCodeAt(0));
       const rootKey = await deriveRootKey(password, saltBytes, kdf_params);
       const vaultKey = await deriveVaultKey(rootKey, username);
-      
+
       const decryptedVault = await decryptVault(vaultResponse.vault_blob, vaultKey, username);
-      
+
       // Set the actual passwords from vault
       setPasswords(decryptedVault.passwords || []);
-      
+
     } catch (error) {
       console.error('Failed to load vault:', error);
+      setPasswords([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Update vault on server
+  // In your vault.jsx, update the updateVaultOnServer function:
   const updateVaultOnServer = async (updatedPasswords) => {
     try {
-      const username = localStorage.getItem('current_user');
-      const salt_kdf = localStorage.getItem(`salt_kdf_${username}`);
-        const kdf_params = JSON.parse(localStorage.getItem(`kdf_params_${username}`));
-        const password = sessionStorage.getItem('temp_password');
+      let username = localStorage.getItem('current_user') || '';
+      const normalizedUsername = username.trim().toLowerCase();
+      username = normalizedUsername;
 
-        if (!password) {
-          // Missing in-memory temp password used for decryption/encryption
-          return { success: false, code: 'MISSING_TEMP_PASSWORD', error: 'Master password not available in session. Please re-enter your master password to save.' };
+      console.log('Current username:', username);
+
+      // Debug: List all localStorage keys to see what's available
+      console.log('All localStorage keys:', Object.keys(localStorage));
+
+      // Try different case variations to find the salt and KDF params
+      let salt_kdf = localStorage.getItem(`salt_kdf_${username}`);
+      let raw = localStorage.getItem(`kdf_params_${username}`);
+
+      // If not found, try case-insensitive matching
+      if (!salt_kdf && username) {
+        const availableSaltKeys = Object.keys(localStorage).filter(key => key.includes('salt'));
+        const matchingSaltKey = availableSaltKeys.find(key =>
+          key.toLowerCase() === `salt_kdf_${username}`.toLowerCase()
+        );
+        if (matchingSaltKey) {
+          salt_kdf = localStorage.getItem(matchingSaltKey);
+          // Extract the actual username from the key for KDF params lookup
+          const actualUsername = matchingSaltKey.replace('salt_kdf_', '');
+          raw = localStorage.getItem(`kdf_params_${actualUsername}`);
+          console.log('Found matching salt key:', matchingSaltKey, 'with username:', actualUsername);
+          username = actualUsername; // Update to the actual username case for consistency
         }
+      }
 
+      const kdf_params = raw ? JSON.parse(raw) : null;
+      const password = sessionStorage.getItem('temp_password');
+
+      console.log('Retrieved data:', {
+        username,
+        salt_kdf: salt_kdf ? 'EXISTS' : 'MISSING',
+        kdf_params,
+        password: password ? 'EXISTS' : 'MISSING'
+      });
+
+      // Enhanced error checking
+      if (!password) {
+        return {
+          success: false,
+          code: 'MISSING_TEMP_PASSWORD',
+          error: 'Session expired. Please refresh the page.'
+        };
+      }
+
+      if (!salt_kdf) {
+        // More specific error to help debug
+        const availableSaltKeys = Object.keys(localStorage).filter(key => key.includes('salt'));
+        console.error('Available salt keys in localStorage:', availableSaltKeys);
+        return {
+          success: false,
+          code: 'MISSING_SALT',
+          error: `Salt not found for user ${username}. Available salt keys: ${availableSaltKeys.join(', ')}`
+        };
+      }
+
+      if (!kdf_params) {
+        const availableKdfKeys = Object.keys(localStorage).filter(key => key.includes('kdf'));
+        console.error('Available KDF keys in localStorage:', availableKdfKeys);
+        return {
+          success: false,
+          code: 'MISSING_KDF_PARAMS',
+          error: `KDF params not found for user ${username}. Available KDF keys: ${availableKdfKeys.join(', ')}`
+        };
+      }
+
+      // Convert salt from base64 to Uint8Array
       const saltBytes = Uint8Array.from(atob(salt_kdf), c => c.charCodeAt(0));
+      console.log('Salt bytes converted, length:', saltBytes.length);
+
       const rootKey = await deriveRootKey(password, saltBytes, kdf_params);
       const vaultKey = await deriveVaultKey(rootKey, username);
 
-      // Create updated vault
+      // Rest of your function remains the same...
+      let base = { passwords: [], wallet: null };
+      try {
+        const latest = await getVault();
+        if (latest && latest.status === 'success' && latest.vault_blob) {
+          try {
+            const serverVault = await decryptVault(latest.vault_blob, vaultKey, username);
+            base = serverVault || base;
+          } catch (e) {
+            console.warn('Could not decrypt server vault; will overwrite with client state.', e);
+          }
+        }
+      } catch (e) {
+        console.warn('Network error during merge attempt, continuing with local data');
+      }
+
       const updatedVault = {
+        ...base,
         passwords: updatedPasswords,
-        wallet: null
+        updated_at: new Date().toISOString()
       };
 
-      // Encrypt and send to server
       const vault_blob = await encryptVault(updatedVault, vaultKey, username);
       const updateResponse = await updateVault(vault_blob);
 
       if (!updateResponse || updateResponse.status !== 'success') {
-        const err = updateResponse && updateResponse.message ? updateResponse.message : 'Unknown server error';
-        console.error('Vault update failed, server response:', updateResponse);
+        const err = updateResponse?.message || 'Unknown server error';
         return { success: false, error: String(err) };
       }
 
@@ -150,8 +256,7 @@ export default function Dashboard() {
       return { success: false, error: error.message || String(error) };
     }
   };
-
-  // Password management functions
+  // --- UPDATED: handleAddPassword now uses updateVaultOnServer instead of addPlainEntry
   const handleAddPassword = async () => {
     const newPasswordEntry = {
       id: Date.now(),
@@ -160,35 +265,32 @@ export default function Dashboard() {
       lastModified: new Date().toISOString().split('T')[0],
       strength: 'medium'
     };
-    
+
     const updatedPasswords = [...passwords, newPasswordEntry];
-  // Close modal immediately (optimistic UX), add locally and attempt to persist. If persist fails mark as pending
-  setShowAddModal(false);
-  setPasswords(updatedPasswords);
-  // Per user request: store entries in MongoDB WITHOUT encryption under plain_entries
-  try {
-    const addRes = await addPlainEntry(newPasswordEntry);
-    if (!addRes || addRes.status !== 'success') {
-      // fallback: mark pending and show error
+    // Close modal immediately (optimistic UX), add locally and attempt to persist. If persist fails mark as pending
+    setShowAddModal(false);
+    setPasswords(updatedPasswords);
+
+    try {
+      const res = await updateVaultOnServer(updatedPasswords);
+      if (!res.success) {
+        setPasswords(prev => prev.map(p => p.id === newPasswordEntry.id ? { ...p, pending: true } : p));
+        setSaveError(res.error || 'Failed to save to vault');
+      } else {
+        setNewPassword({
+          name: '',
+          username: '',
+          password: '',
+          website: '',
+          category: 'other',
+          notes: ''
+        });
+        setSaveError(null);
+      }
+    } catch (err) {
       setPasswords(prev => prev.map(p => p.id === newPasswordEntry.id ? { ...p, pending: true } : p));
-      setSaveError(addRes && addRes.message ? addRes.message : 'Failed to save plain entry');
-    } else {
-      // saved successfully
-      setNewPassword({
-        name: '',
-        username: '',
-        password: '',
-        website: '',
-        category: 'other',
-        notes: ''
-      });
-      setSaveError(null);
+      setSaveError(err.message || 'Network error while saving to vault');
     }
-  } catch (err) {
-    // optimistic UI already added entry; mark pending for retry
-    setPasswords(prev => prev.map(p => p.id === newPasswordEntry.id ? { ...p, pending: true } : p));
-    setSaveError(err.message || 'Network error while saving plain entry');
-  }
   };
 
   // Retry syncing any pending entries (attempts to upload the full vault again)
@@ -205,14 +307,12 @@ export default function Dashboard() {
     }
   };
 
-  // Old delete handler (encrypted-vault flow) removed. Deletion now uses API deletePlainEntry in the UI actions.
-
   const toggleFavorite = async (id) => {
-    const updatedPasswords = passwords.map(p => 
+    const updatedPasswords = passwords.map(p =>
       p.id === id ? { ...p, favorite: !p.favorite } : p
     );
     setPasswords(updatedPasswords);
-    
+
     await updateVaultOnServer(updatedPasswords);
   };
 
@@ -241,14 +341,13 @@ export default function Dashboard() {
     if (generatorConfig.lowercase) charset += 'abcdefghijklmnopqrstuvwxyz';
     if (generatorConfig.numbers) charset += '0123456789';
     if (generatorConfig.symbols) charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
-    
+
     let password = '';
     for (let i = 0; i < generatorConfig.length; i++) {
       password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
     setGeneratedPassword(password);
   };
-
 
   // Categories
   const categories = [
@@ -262,13 +361,13 @@ export default function Dashboard() {
   // Filter passwords
   const filteredPasswords = passwords.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         p.username.toLowerCase().includes(searchQuery.toLowerCase());
+      p.username.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const getStrengthColor = (strength) => {
-    switch(strength) {
+    switch (strength) {
       case 'weak': return darkMode ? 'text-red-400' : 'text-red-600';
       case 'medium': return darkMode ? 'text-yellow-400' : 'text-yellow-600';
       case 'strong': return darkMode ? 'text-green-400' : 'text-green-600';
@@ -277,7 +376,7 @@ export default function Dashboard() {
   };
 
   const getCategoryIcon = (category) => {
-    switch(category) {
+    switch (category) {
       case 'email': return Mail;
       case 'social': return Globe;
       case 'financial': return CreditCard;
@@ -288,9 +387,8 @@ export default function Dashboard() {
   // Loading state
   if (loading) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${
-        darkMode ? 'bg-gray-900' : 'bg-gray-50'
-      }`}>
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900' : 'bg-gray-50'
+        }`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
           <p className={`mt-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -303,16 +401,14 @@ export default function Dashboard() {
 
   // Normal dashboard content when not loading
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      darkMode ? 'bg-gray-900' : 'bg-gray-50'
-    }`}>
-      
-      {/* Header */}
-      <header className={`sticky top-0 z-40 border-b transition-colors ${
-        darkMode 
-          ? 'bg-gray-800 border-gray-700' 
-          : 'bg-white border-gray-200'
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
+
+      {/* Header */}
+      <header className={`sticky top-0 z-40 border-b transition-colors ${darkMode
+          ? 'bg-gray-800 border-gray-700'
+          : 'bg-white border-gray-200'
+        }`}>
         <div className="max-w-7xl mx-auto px-6 py-4">
           {saveError && (
             <div className="mb-2">
@@ -327,9 +423,8 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                darkMode ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-green-500 to-green-600'
-              }`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${darkMode ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-green-500 to-green-600'
+                }`}>
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -346,22 +441,20 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-lg transition ${
-                  darkMode 
-                    ? 'bg-gray-700 hover:bg-gray-600 text-yellow-400' 
+                className={`p-2 rounded-lg transition ${darkMode
+                    ? 'bg-gray-700 hover:bg-gray-600 text-yellow-400'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
+                  }`}
               >
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
-              
+
               <button
                 onClick={() => navigate('/')}
-                className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${
-                  darkMode 
-                    ? 'bg-gray-700 bg-opacity-10 hover:bg-opacity-20 text-white' 
+                className={`px-3 py-2 rounded-lg transition flex items-center gap-2 ${darkMode
+                    ? 'bg-gray-700 bg-opacity-10 hover:bg-opacity-20 text-white'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
+                  }`}
               >
                 <Home className="w-4 h-4" />
                 <span className="text-sm font-semibold">Home</span>
@@ -386,11 +479,10 @@ export default function Dashboard() {
                   }
                   navigate('/login');
                 }}
-                className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${
-                  darkMode 
-                    ? 'bg-red-500 bg-opacity-20 hover:bg-opacity-30 text-red-400' 
+                className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${darkMode
+                    ? 'bg-red-500 bg-opacity-20 hover:bg-opacity-30 text-red-400'
                     : 'bg-red-50 hover:bg-red-100 text-red-600'
-                }`}
+                  }`}
               >
                 <LogOut className="w-4 h-4" />
                 <span className="text-sm font-semibold">Logout</span>
@@ -430,12 +522,11 @@ export default function Dashboard() {
 
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-12 gap-6">
-          
+
           {/* Sidebar */}
           <div className="col-span-12 lg:col-span-3">
-            <div className={`rounded-xl p-4 ${
-              darkMode ? 'bg-gray-800' : 'bg-white'
-            }`}>
+            <div className={`rounded-xl p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'
+              }`}>
               <h3 className={`text-sm font-bold mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Categories
               </h3>
@@ -446,25 +537,23 @@ export default function Dashboard() {
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${
-                        selectedCategory === cat.id
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition ${selectedCategory === cat.id
                           ? darkMode
                             ? 'bg-blue-500 bg-opacity-20 text-blue-400'
                             : 'bg-green-100 text-green-700'
                           : darkMode
                             ? 'text-gray-400 hover:bg-gray-700'
                             : 'text-gray-600 hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <Icon className="w-4 h-4" />
                         <span className="text-sm font-medium">{cat.name}</span>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        selectedCategory === cat.id
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${selectedCategory === cat.id
                           ? darkMode ? 'bg-blue-500' : 'bg-green-500'
                           : darkMode ? 'bg-gray-700' : 'bg-gray-200'
-                      } text-white`}>
+                        } text-white`}>
                         {cat.count}
                       </span>
                     </button>
@@ -476,11 +565,10 @@ export default function Dashboard() {
 
           {/* Main Content */}
           <div className="col-span-12 lg:col-span-9">
-            
+
             {/* Search & Actions Bar */}
-            <div className={`rounded-xl p-4 mb-6 ${
-              darkMode ? 'bg-gray-800' : 'bg-white'
-            }`}>
+            <div className={`rounded-xl p-4 mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'
+              }`}>
               <div className="flex flex-col md:flex-row gap-4">
                 {/* Search */}
                 <div className="flex-1 relative">
@@ -490,11 +578,10 @@ export default function Dashboard() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search passwords..."
-                    className={`w-full pl-10 pr-4 py-2.5 rounded-lg outline-none transition ${
-                      darkMode 
-                        ? 'bg-gray-700 border border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500' 
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-lg outline-none transition ${darkMode
+                        ? 'bg-gray-700 border border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500'
                         : 'border border-gray-200 focus:ring-2 focus:ring-green-500'
-                    }`}
+                      }`}
                   />
                 </div>
 
@@ -502,11 +589,10 @@ export default function Dashboard() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowPasswordGenerator(true)}
-                    className={`px-4 py-2.5 rounded-lg transition flex items-center gap-2 ${
-                      darkMode 
-                        ? 'bg-purple-500 bg-opacity-20 hover:bg-opacity-30 text-purple-400' 
+                    className={`px-4 py-2.5 rounded-lg transition flex items-center gap-2 ${darkMode
+                        ? 'bg-purple-500 bg-opacity-20 hover:bg-opacity-30 text-purple-400'
                         : 'bg-purple-50 hover:bg-purple-100 text-purple-600'
-                    }`}
+                      }`}
                   >
                     <RefreshCw className="w-4 h-4" />
                     <span className="text-sm font-semibold hidden sm:block">Generate</span>
@@ -514,11 +600,10 @@ export default function Dashboard() {
 
                   <button
                     onClick={() => setShowAddModal(true)}
-                    className={`px-4 py-2.5 rounded-lg transition flex items-center gap-2 ${
-                      darkMode 
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' 
+                    className={`px-4 py-2.5 rounded-lg transition flex items-center gap-2 ${darkMode
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
                         : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-                    } text-white font-semibold shadow-lg`}
+                      } text-white font-semibold shadow-lg`}
                   >
                     <Plus className="w-4 h-4" />
                     <span className="text-sm">Add Password</span>
@@ -534,18 +619,16 @@ export default function Dashboard() {
                 return (
                   <div
                     key={item.id}
-                    className={`rounded-xl p-5 transition-all hover:scale-[1.02] ${
-                      darkMode 
-                        ? 'bg-gray-800 border border-gray-700 hover:border-blue-500' 
+                    className={`rounded-xl p-5 transition-all hover:scale-[1.02] ${darkMode
+                        ? 'bg-gray-800 border border-gray-700 hover:border-blue-500'
                         : 'bg-white border border-gray-200 hover:border-green-500 hover:shadow-lg'
-                    }`}
+                      }`}
                   >
                     {/* Header */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          darkMode ? 'bg-gray-700' : 'bg-gray-100'
-                        }`}>
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${darkMode ? 'bg-gray-700' : 'bg-gray-100'
+                          }`}>
                           <CategoryIcon className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-green-600'}`} />
                         </div>
                         <div>
@@ -557,14 +640,13 @@ export default function Dashboard() {
                           </p>
                         </div>
                       </div>
-                      
+
                       <button
                         onClick={() => toggleFavorite(item.id)}
-                        className={`text-xl transition ${
-                          item.favorite 
-                            ? 'text-yellow-500' 
+                        className={`text-xl transition ${item.favorite
+                            ? 'text-yellow-500'
                             : darkMode ? 'text-gray-600 hover:text-yellow-500' : 'text-gray-300 hover:text-yellow-500'
-                        }`}
+                          }`}
                       >
                         ★
                       </button>
@@ -581,9 +663,8 @@ export default function Dashboard() {
                         </p>
                         <button
                           onClick={() => copyToClipboard(item.username, `user-${item.id}`)}
-                          className={`p-1.5 rounded transition ${
-                            darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                          }`}
+                          className={`p-1.5 rounded transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                            }`}
                         >
                           {copiedId === `user-${item.id}` ? (
                             <Check className="w-4 h-4 text-green-500" />
@@ -605,9 +686,8 @@ export default function Dashboard() {
                         </p>
                         <button
                           onClick={() => togglePasswordVisibility(item.id)}
-                          className={`p-1.5 rounded transition ${
-                            darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                          }`}
+                          className={`p-1.5 rounded transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                            }`}
                         >
                           {visiblePasswords.has(item.id) ? (
                             <EyeOff className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
@@ -617,9 +697,8 @@ export default function Dashboard() {
                         </button>
                         <button
                           onClick={() => copyToClipboard(item.password, `pass-${item.id}`)}
-                          className={`p-1.5 rounded transition ${
-                            darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                          }`}
+                          className={`p-1.5 rounded transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                            }`}
                         >
                           {copiedId === `pass-${item.id}` ? (
                             <Check className="w-4 h-4 text-green-500" />
@@ -640,6 +719,7 @@ export default function Dashboard() {
 
                     {/* Actions */}
                     <div className="flex gap-2">
+                      {/* UPDATED: Delete handler with encrypted vault first, plaintext fallback */}
                       <button
                         onClick={async () => {
                           if (!confirm('Are you sure you want to delete this password?')) return;
@@ -648,24 +728,20 @@ export default function Dashboard() {
                           const updated = passwords.filter(p => p.id !== item.id);
                           setPasswords(updated);
                           try {
-                            // attempt to delete via API (plaintext storage)
-                            const del = await deletePlainEntry(item.id);
-                            if (!del || del.status !== 'success') {
-                              // restore and show error
-                              setPasswords(prev);
-                              alert(del && del.message ? del.message : 'Failed to delete entry on server');
+                            // Try encrypted-vault persist first (preferred)
+                            const result = await updateVaultOnServer(updated);
+                            if (!result.success) {
+                              // ...existing code...
                             }
                           } catch (e) {
-                            console.error('Error deleting entry:', e);
                             setPasswords(prev);
                             alert('Network error while deleting entry');
                           }
                         }}
-                        className={`flex-1 px-3 py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm font-medium ${
-                          darkMode 
-                            ? 'bg-red-500 bg-opacity-20 hover:bg-opacity-30 text-red-400' 
+                        className={`flex-1 px-3 py-2 rounded-lg transition flex items-center justify-center gap-2 text-sm font-medium ${darkMode
+                            ? 'bg-red-500 bg-opacity-20 hover:bg-opacity-30 text-red-400'
                             : 'bg-red-50 hover:bg-red-100 text-red-600'
-                        }`}
+                          }`}
                       >
                         <Trash2 className="w-4 h-4" />
                         Delete
@@ -678,9 +754,8 @@ export default function Dashboard() {
 
             {/* Empty State */}
             {filteredPasswords.length === 0 && (
-              <div className={`rounded-xl p-12 text-center ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
-              }`}>
+              <div className={`rounded-xl p-12 text-center ${darkMode ? 'bg-gray-800' : 'bg-white'
+                }`}>
                 <Shield className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
                 <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   No passwords found
@@ -690,11 +765,10 @@ export default function Dashboard() {
                 </p>
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className={`px-6 py-3 rounded-lg font-semibold ${
-                    darkMode 
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' 
+                  className={`px-6 py-3 rounded-lg font-semibold ${darkMode
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
                       : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-                  } text-white`}
+                    } text-white`}
                 >
                   Add Password
                 </button>
@@ -707,18 +781,16 @@ export default function Dashboard() {
       {/* Add Password Modal */}
       {showAddModal && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50 bg-black/30 backdrop-blur-sm">
-          <div className={`w-full max-w-lg rounded-xl p-6 ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
+          <div className={`w-full max-w-lg rounded-xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'
+            }`}>
             <div className="flex items-center justify-between mb-6">
               <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 Add New Password
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
-                className={`p-2 rounded-lg transition ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
+                className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                  }`}
               >
                 <X className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
               </button>
@@ -732,13 +804,12 @@ export default function Dashboard() {
                 <input
                   type="text"
                   value={newPassword.name}
-                  onChange={(e) => setNewPassword({...newPassword, name: e.target.value})}
+                  onChange={(e) => setNewPassword({ ...newPassword, name: e.target.value })}
                   required
-                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${
-                    darkMode 
-                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500' 
+                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${darkMode
+                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500'
                       : 'border border-gray-200 focus:ring-2 focus:ring-green-500'
-                  }`}
+                    }`}
                   placeholder="e.g., Gmail"
                 />
               </div>
@@ -750,13 +821,12 @@ export default function Dashboard() {
                 <input
                   type="text"
                   value={newPassword.username}
-                  onChange={(e) => setNewPassword({...newPassword, username: e.target.value})}
+                  onChange={(e) => setNewPassword({ ...newPassword, username: e.target.value })}
                   required
-                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${
-                    darkMode 
-                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500' 
+                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${darkMode
+                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500'
                       : 'border border-gray-200 focus:ring-2 focus:ring-green-500'
-                  }`}
+                    }`}
                   placeholder="username@example.com"
                 />
               </div>
@@ -768,13 +838,12 @@ export default function Dashboard() {
                 <input
                   type="text"
                   value={newPassword.password}
-                  onChange={(e) => setNewPassword({...newPassword, password: e.target.value})}
+                  onChange={(e) => setNewPassword({ ...newPassword, password: e.target.value })}
                   required
-                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${
-                    darkMode 
-                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500' 
+                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${darkMode
+                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500'
                       : 'border border-gray-200 focus:ring-2 focus:ring-green-500'
-                  }`}
+                    }`}
                   placeholder="Enter password"
                 />
               </div>
@@ -786,12 +855,11 @@ export default function Dashboard() {
                 <input
                   type="url"
                   value={newPassword.website}
-                  onChange={(e) => setNewPassword({...newPassword, website: e.target.value})}
-                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${
-                    darkMode 
-                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500' 
+                  onChange={(e) => setNewPassword({ ...newPassword, website: e.target.value })}
+                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${darkMode
+                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500'
                       : 'border border-gray-200 focus:ring-2 focus:ring-green-500'
-                  }`}
+                    }`}
                   placeholder="https://example.com"
                 />
               </div>
@@ -802,12 +870,11 @@ export default function Dashboard() {
                 </label>
                 <select
                   value={newPassword.category}
-                  onChange={(e) => setNewPassword({...newPassword, category: e.target.value})}
-                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${
-                    darkMode 
-                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500' 
+                  onChange={(e) => setNewPassword({ ...newPassword, category: e.target.value })}
+                  className={`w-full px-4 py-2.5 rounded-lg outline-none transition ${darkMode
+                      ? 'bg-gray-700 border border-gray-600 text-white focus:ring-2 focus:ring-blue-500'
                       : 'border border-gray-200 focus:ring-2 focus:ring-green-500'
-                  }`}
+                    }`}
                 >
                   <option value="email">Email</option>
                   <option value="social">Social Media</option>
@@ -821,21 +888,19 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition ${
-                    darkMode 
-                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition ${darkMode
+                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
+                    }`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-white ${
-                    darkMode 
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' 
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-white ${darkMode
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
                       : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-                  }`}
+                    }`}
                 >
                   Add Password
                 </button>
@@ -848,36 +913,32 @@ export default function Dashboard() {
       {/* Password Generator Modal */}
       {showPasswordGenerator && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`w-full max-w-md rounded-xl p-6 ${
-            darkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
+          <div className={`w-full max-w-md rounded-xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'
+            }`}>
             <div className="flex items-center justify-between mb-6">
               <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 Password Generator
               </h2>
               <button
                 onClick={() => setShowPasswordGenerator(false)}
-                className={`p-2 rounded-lg transition ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
+                className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                  }`}
               >
                 <X className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
               </button>
             </div>
 
             {/* Generated Password Display */}
-            <div className={`p-4 rounded-lg mb-6 ${
-              darkMode ? 'bg-gray-700' : 'bg-gray-100'
-            }`}>
+            <div className={`p-4 rounded-lg mb-6 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'
+              }`}>
               <div className="flex items-center justify-between">
                 <p className={`font-mono text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   {generatedPassword || 'Click generate'}
                 </p>
                 <button
                   onClick={() => copyToClipboard(generatedPassword, 'generated')}
-                  className={`p-2 rounded-lg transition ${
-                    darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                  }`}
+                  className={`p-2 rounded-lg transition ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
+                    }`}
                 >
                   {copiedId === 'generated' ? (
                     <Check className="w-5 h-5 text-green-500" />
@@ -898,7 +959,7 @@ export default function Dashboard() {
                 min="8"
                 max="32"
                 value={generatorConfig.length}
-                onChange={(e) => setGeneratorConfig({...generatorConfig, length: parseInt(e.target.value)})}
+                onChange={(e) => setGeneratorConfig({ ...generatorConfig, length: parseInt(e.target.value) })}
                 className="w-full"
               />
             </div>
@@ -915,10 +976,9 @@ export default function Dashboard() {
                   <input
                     type="checkbox"
                     checked={generatorConfig[option.key]}
-                    onChange={(e) => setGeneratorConfig({...generatorConfig, [option.key]: e.target.checked})}
-                    className={`w-4 h-4 rounded focus:ring-2 ${
-                      darkMode ? 'text-blue-600 focus:ring-blue-500' : 'text-green-600 focus:ring-green-500'
-                    }`}
+                    onChange={(e) => setGeneratorConfig({ ...generatorConfig, [option.key]: e.target.checked })}
+                    className={`w-4 h-4 rounded focus:ring-2 ${darkMode ? 'text-blue-600 focus:ring-blue-500' : 'text-green-600 focus:ring-green-500'
+                      }`}
                   />
                   <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     {option.label}
@@ -930,11 +990,10 @@ export default function Dashboard() {
             {/* Generate Button */}
             <button
               onClick={generatePassword}
-              className={`w-full px-4 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 ${
-                darkMode 
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' 
+              className={`w-full px-4 py-3 rounded-lg font-semibold text-white flex items-center justify-center gap-2 ${darkMode
+                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
                   : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-              }`}
+                }`}
             >
               <RefreshCw className="w-5 h-5" />
               Generate Password
