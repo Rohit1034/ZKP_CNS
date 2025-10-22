@@ -1,7 +1,6 @@
 // lib/crypto.js (Includes PBKDF2 for key derivation)
 
 const encoder = new TextEncoder()
-const decoder = new TextDecoder() // Decoder not used here, but kept for consistency
 
 export async function deriveKeyPBKDF2(password, salt, iterations = 100_000, lengthBytes = 32) {
   const pwKey = await crypto.subtle.importKey(
