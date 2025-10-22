@@ -27,7 +27,7 @@ export default function WalletSetupPage() {
 
   const handleCreateWallet = async () => {
     if (!password) return setStatus('Provide a wallet password.')
-    if (totalShares < threshold || threshold < 2) {
+    if (threshold < 2 || threshold > totalShares) {
       return setStatus('Error: Threshold (T) must be >= 2 and <= Total Shares (N).')
     }
     if (friendEmails.slice(0, totalShares).some(e => !e || !e.includes('@'))) {
