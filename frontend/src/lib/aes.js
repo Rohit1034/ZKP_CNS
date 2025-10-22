@@ -1,4 +1,5 @@
-// ...existing code...
+// lib/aes.js
+
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
@@ -60,4 +61,3 @@ export async function decryptData(key, dataBase64, ivBase64) {
   )
   return decoder.decode(pt)
 }
-// ...existing code...

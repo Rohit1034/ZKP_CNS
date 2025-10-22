@@ -331,6 +331,7 @@ export default function Register() {
 
             {/* Submit Button */}
             <button
+              
               type="submit"
               className={`w-full py-3.5 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 ${darkMode
                   ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
@@ -352,6 +353,7 @@ export default function Register() {
               Already have an account? <span className="underline">Sign in</span>
             </button>
           </div>
+
         </div>
       </div>
     </div>

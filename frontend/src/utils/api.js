@@ -1,4 +1,5 @@
-const BASE_URL = 'http://localhost:5000'; // adjust if needed
+const BASE_URL = 'http://localhost:5000'; // Flask backend
+const MAILER_URL = 'http://localhost:5050'; // Node mailer backend
 
 export async function register(payload) {
   const res = await fetch(`${BASE_URL}/auth/register`, {
@@ -71,5 +72,18 @@ export async function logout() {
       'Authorization': `Bearer ${sessionToken}`
     }
   });
+  return res.json();
+}
+
+// Send shares via email using the mailer service
+export async function sendSharesEmail({ recipients, fromEmail, username }) {
+  const res = await fetch(`${MAILER_URL}/api/send-shares`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipients, fromEmail, username })
+  });
+  if (!res.ok) {
+    return { status: 'error', message: `Mailer service error: ${res.status} ${res.statusText}` };
+  }
   return res.json();
 }

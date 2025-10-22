@@ -5,6 +5,8 @@ import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/homePage';
 import { Buffer } from 'buffer';
 import Dashboard from './pages/vault';
+import WalletSetupPage from './pages/WalletSetupPage';
+import WalletRecoveryPage from './pages/WalletRecoveryPage';
 window.Buffer = Buffer;
 
 export default function App() {
@@ -20,8 +22,10 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/register" element={<RegistrationPage />} />
         <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
-        <Route path="/dashboard" element={<Dashboard onLoginSuccess={handleLoginSuccess} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/wallet-setup" element={<WalletSetupPage />} />
+        <Route path="/wallet-recovery" element={<WalletRecoveryPage />} />
+        <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );
