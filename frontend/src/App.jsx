@@ -5,7 +5,6 @@ import LoginPage from './pages/LoginPage';
 import LandingPage from './pages/homePage';
 import { Buffer } from 'buffer';
 import Dashboard from './pages/vault';
-import SocialRecoveryWalletPage from './pages/SocialRecoveryWalletPage';
 import WalletSetupPage from './pages/WalletSetupPage';
 import WalletRecoveryPage from './pages/WalletRecoveryPage';
 window.Buffer = Buffer;
@@ -26,7 +25,6 @@ export default function App() {
         <Route path="/wallet-setup" element={<WalletSetupPage />} />
         <Route path="/wallet-recovery" element={<WalletRecoveryPage />} />
         <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/login" />} />
-        <Route path="/social-recovery" element={<SocialRecoveryWalletPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

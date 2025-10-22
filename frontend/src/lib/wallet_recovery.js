@@ -111,24 +111,53 @@ export function verifySchnorrProof(proof, friendPublicKeyY) {
  * Final User Step: Decrypts and imports the ECC key.
  */
 export async function finalRecoveryStep(recoveredMasterKey) {
+  console.log('🔍 Final Recovery: Looking for encrypted wallet...')
   const encFinalRaw = localStorage.getItem('wallet_priv_final_enc')
-  if (!encFinalRaw) throw new Error('Encrypted wallet not found.')
+  if (!encFinalRaw) {
+    console.error('❌ Final Recovery: Encrypted wallet not found in localStorage')
+    throw new Error('Encrypted wallet not found.')
+  }
+  
+  console.log('✅ Final Recovery: Found encrypted wallet')
   const encFinal = JSON.parse(encFinalRaw)
+  console.log('🔍 Final Recovery: Encrypted data length:', encFinal.data.length, 'IV length:', encFinal.iv.length)
 
-  // Decrypt the ECC private key using the recovered Master Key
-  const privBase64 = await decryptData(
-    recoveredMasterKey,
-    encFinal.data,
-    encFinal.iv
-  )
+  try {
+    // Decrypt the ECC private key using the recovered Master Key
+    console.log('🔍 Final Recovery: Attempting decryption...')
+    
+    // Convert arrays to base64 strings
+    const dataArray = new Uint8Array(encFinal.data)
+    const ivArray = new Uint8Array(encFinal.iv)
+    
+    const dataBase64 = btoa(String.fromCharCode(...dataArray))
+    const ivBase64 = btoa(String.fromCharCode(...ivArray))
+    
+    console.log('🔍 Final Recovery: Converted arrays to base64')
+    console.log('  Data base64 length:', dataBase64.length)
+    console.log('  IV base64 length:', ivBase64.length)
+    
+    const privBase64 = await decryptData(
+      recoveredMasterKey,
+      dataBase64,
+      ivBase64
+    )
+    console.log('✅ Final Recovery: Decryption successful, private key length:', privBase64.length)
 
-  // Import the ECC key into session
-  const bytes = Uint8Array.from(atob(privBase64), c => c.charCodeAt(0))
-  await crypto.subtle.importKey(
-    'pkcs8',
-    bytes.buffer,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    true,
-    ['sign']
-  )
+    // Import the ECC key into session
+    const bytes = Uint8Array.from(atob(privBase64), c => c.charCodeAt(0))
+    console.log('🔍 Final Recovery: Importing ECDSA key, bytes length:', bytes.length)
+    
+    await crypto.subtle.importKey(
+      'pkcs8',
+      bytes.buffer,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      true,
+      ['sign']
+    )
+    console.log('✅ Final Recovery: ECDSA key imported successfully')
+  } catch (error) {
+    console.error('❌ Final Recovery: Decryption or import failed:', error)
+    throw new Error(`Wallet decryption failed: ${error.message}`)
+  }
 }

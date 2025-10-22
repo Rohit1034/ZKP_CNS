@@ -34,29 +34,39 @@ export default function WalletRecoveryPage() {
       return setStatus('Please enter a secret share.')
     }
 
-    setStatus('Verifying share with Zero-Knowledge Proof...')
+    setStatus('Validating share format...')
     
     try {
-      const myShareHex = recoveryShareInput.trim()
+      // Clean the input - remove whitespace, line breaks
+      const cleanedShare = recoveryShareInput.trim().replace(/\s+/g, '')
+      
+      // Validate hex format (should be even length and only hex characters)
+      if (!/^[0-9a-fA-F]+$/.test(cleanedShare)) {
+        return setStatus('❌ Invalid share format. Share must be a hexadecimal string (0-9, a-f).')
+      }
+      
+      if (cleanedShare.length % 2 !== 0) {
+        return setStatus('❌ Invalid share length. Share must have even number of characters.')
+      }
+      
+      // Typical SSS share for 256-bit key should be around 66-68 characters (33-34 bytes)
+      if (cleanedShare.length < 50 || cleanedShare.length > 100) {
+         setStatus('⚠️ Warning: Share length seems unusual. Expected 50-100 hex characters. Continue anyway?')
+      }
       
       // Check if already collected
-      const alreadyCollected = recoveryProofs.some(p => p.shareHex === myShareHex)
+      const alreadyCollected = recoveryProofs.some(p => p.shareHex === cleanedShare)
       if (alreadyCollected) {
         return setStatus('This share was already collected.')
       }
 
-      // For recovery, we don't have shareData available, so we skip the exact match check
-      // and rely on the final reconstruction to validate correctness
-      const proof = await generateRecoveryProof(myShareHex)
-
-      // In a real scenario, you'd verify against stored public keys
-      // For now, we accept the share and verify during reconstruction
-      setRecoveryProofs(prev => [...prev, { shareHex: myShareHex }])
-      setStatus(`Share accepted! Collected ${recoveryProofs.length + 1} of ${threshold} shares.`)
+      // Store the validated share
+      setRecoveryProofs(prev => [...prev, { shareHex: cleanedShare }])
+      setStatus(`✅ Share accepted! Collected ${recoveryProofs.length + 1} of ${threshold} shares.`)
       setRecoveryShareInput('')
     } catch (error) {
       console.error(error)
-      setStatus('Error processing share. Check console.')
+      setStatus('Error processing share: ' + error.message)
     }
   }
 
@@ -74,8 +84,13 @@ export default function WalletRecoveryPage() {
     setStatus('Reconstructing Master Key via Shamir\'s Secret Sharing...')
 
     try {
-      const recoveredMasterKey = await reconstructMasterKey(sharesToCombine) 
+      console.log('🔍 Attempting to reconstruct key with shares:', sharesToCombine)
+      const recoveredMasterKey = await reconstructMasterKey(sharesToCombine)
+      console.log('✅ Master key reconstructed successfully')
+      
+      setStatus('Decrypting wallet with recovered key...')
       await finalRecoveryStep(recoveredMasterKey)
+      console.log('✅ Wallet decrypted successfully')
       
       setRecoveredKey(recoveredMasterKey)
       setIsRecovered(true)
@@ -85,28 +100,43 @@ export default function WalletRecoveryPage() {
       await autoLogin(username, recoveredMasterKey)
       
     } catch (error) {
-      console.error(error)
-      setStatus('Recovery Failed. The shares may be incorrect or corrupted.')
+      console.error('❌ Recovery Error:', error)
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+      setStatus(`Recovery Failed: ${error.message || 'The shares may be incorrect or corrupted.'}`)
     }
   }
 
   const autoLogin = async (username, recoveredMasterKey) => {
     try {
+      console.log('🔍 Auto-login: Starting for username:', username)
       setStatus('Requesting challenge from server...')
+      
       const challenge = await requestChallenge(username)
+      console.log('🔍 Auto-login: Challenge response:', challenge)
+      
       if (challenge.status !== 'success') {
+        console.error('❌ Auto-login: Challenge request failed:', challenge)
         return setStatus(challenge.message || 'Challenge request failed')
       }
 
+      console.log('✅ Auto-login: Challenge received, generating proof...')
+      
       // Export the CryptoKey to raw bytes
       const keyBuffer = await crypto.subtle.exportKey('raw', recoveredMasterKey)
       const rootKey = new Uint8Array(keyBuffer)
+      console.log('🔍 Auto-login: Root key length:', rootKey.length)
 
       // Compute public/private components from recovered key
       const { x } = await computePublicY(rootKey)
+      console.log('🔍 Auto-login: Public key computed')
 
       // Generate ZK proof using challenge from server
       const { R, s } = await generateProof(x, challenge.c)
+      console.log('🔍 Auto-login: ZK proof generated')
 
       setStatus('Verifying proof and logging in...')
       const result = await verifyLogin({
@@ -115,18 +145,27 @@ export default function WalletRecoveryPage() {
         R,
         s,
       })
+      
+      console.log('🔍 Auto-login: Login verification result:', result)
 
       if (result.status === 'success') {
+        console.log('✅ Auto-login: Login successful!')
         setStatus('✅ Login successful! Redirecting to dashboard...')
         localStorage.setItem('session_token', result.session_token)
         localStorage.setItem('current_user', username)
         
-        setTimeout(() => navigate('/dashboard'), 1500)
+        console.log('🔍 Auto-login: Redirecting to dashboard in 1.5 seconds...')
+        setTimeout(() => {
+          console.log('🔍 Auto-login: Navigating to /dashboard')
+          navigate('/dashboard')
+        }, 1500)
       } else {
+        console.error('❌ Auto-login: Login verification failed:', result)
         setStatus('Login failed: ' + (result.message || 'Unknown error'))
       }
     } catch (error) {
-      console.error(error)
+      console.error('❌ Auto-login: Error occurred:', error)
+      console.error('Error stack:', error.stack)
       setStatus('Auto-login failed: ' + error.message)
     }
   }
@@ -174,24 +213,51 @@ export default function WalletRecoveryPage() {
             <p className="text-sm mb-3 text-blue-600">
               Ask your trusted friends for the secret shares they received via email. Enter them one by one below.
             </p>
-            <input 
-              type="text"
+            
+            {/* Instructions box */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm font-semibold text-blue-800 mb-2">📋 How to paste shares:</p>
+              <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                <li>Copy the entire hex string from your friend's email</li>
+                <li>Paste it exactly as received (spaces and line breaks will be removed automatically)</li>
+                <li>The share should look like: <code className="bg-white px-1 rounded">a3f5e8b2c1d4...</code></li>
+                <li>Each share is unique - you need {threshold} different shares</li>
+              </ul>
+            </div>
+            
+            <textarea
               value={recoveryShareInput}
               onChange={(e) => setRecoveryShareInput(e.target.value)}
-              placeholder="Paste a friend's Secret Share here"
-              className="border-2 border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 p-3 rounded-lg w-full mb-3 outline-none transition-all"
+              placeholder="Paste a friend's Secret Share here (hex string)"
+              rows={3}
+              className="border-2 border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 p-3 rounded-lg w-full mb-3 outline-none transition-all font-mono text-sm"
             />
             <Button 
               onClick={handleFriendSubmitProof} 
               disabled={!recoveryShareInput}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
             >
-              Add Share
+              Add Share ({recoveryProofs.length}/{threshold})
             </Button>
           </div>
 
           <div className="pt-6 border-t-2 border-blue-200">
-            <h4 className="font-semibold text-lg mb-3 text-blue-700">Reconstruct Master Key & Login</h4>
+            <h4 className="font-semibold text-lg mb-3 text-blue-700">Collected Shares</h4>
+            
+            {/* Display collected shares */}
+            {recoveryProofs.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {recoveryProofs.map((proof, idx) => (
+                  <div key={idx} className="bg-green-50 border-2 border-green-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-green-800 mb-1">Share {idx + 1}:</p>
+                    <p className="text-xs font-mono text-green-700 break-all">
+                      {proof.shareHex.substring(0, 40)}...
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            
             <div className="text-base mb-4 font-medium text-blue-800">
               Shares Collected: <span className="text-blue-600 font-bold">{recoveryProofs.length}</span> / {threshold} required
             </div>

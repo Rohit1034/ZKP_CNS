@@ -51,6 +51,7 @@ export default function WalletSetupPage() {
 
       // Derive the SAME root key used during registration
       const rootKey = await deriveRootKey(password, salt_kdf, kdf_params)
+      console.log('🔍 Wallet Setup: Root key derived, length:', rootKey.length, 'bytes')
       
       // Convert root key to CryptoKey for SSS
       const masterKey = await crypto.subtle.importKey(
@@ -60,11 +61,46 @@ export default function WalletSetupPage() {
         true,
         ['encrypt', 'decrypt']
       )
+      console.log('✅ Wallet Setup: Master key imported as CryptoKey')
 
+      setStatus('Creating wallet keypair...')
+      
+      // 1. Generate ECDSA Keypair for wallet
+      const walletKeypair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        ['sign', 'verify']
+      )
+      
+      const pubJwk = await crypto.subtle.exportKey('jwk', walletKeypair.publicKey)
+      const privPkcs8 = await crypto.subtle.exportKey('pkcs8', walletKeypair.privateKey)
+      const privBase64 = btoa(String.fromCharCode(...new Uint8Array(privPkcs8)))
+      console.log('✅ Wallet Setup: ECDSA keypair generated, private key length:', privBase64.length)
+      
+      // 2. Encrypt the wallet private key with the master key
+      setStatus('Encrypting wallet with master key...')
+      const ivBytes = crypto.getRandomValues(new Uint8Array(12))
+      const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: ivBytes },
+        masterKey,
+        new TextEncoder().encode(privBase64)
+      )
+      console.log('✅ Wallet Setup: Wallet encrypted, ciphertext length:', encrypted.byteLength)
+      
+      // Store encrypted wallet and public key
+      localStorage.setItem('wallet_priv_final_enc', JSON.stringify({
+        data: Array.from(new Uint8Array(encrypted)),
+        iv: Array.from(ivBytes)
+      }))
+      localStorage.setItem('wallet_pub_jwk', JSON.stringify(pubJwk))
+      console.log('✅ Wallet Setup: Encrypted wallet stored in localStorage')
+      
       setStatus('Splitting master key into shares...')
       
-      // Split the master key into shares
+      // 3. Split the master key into shares
       const hexShares = await splitMasterKey(masterKey, totalShares, threshold)
+      console.log('✅ Wallet Setup: Master key split into', hexShares.length, 'shares')
+      console.log('Share lengths:', hexShares.map(s => s.length))
       
       // Prepare shares for friends (simple format, no Schnorr commitments for now)
       const sharesForFriends = hexShares.map((shareHex, index) => ({

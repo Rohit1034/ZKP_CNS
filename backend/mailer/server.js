@@ -1,6 +1,9 @@
 // Simple mailer service using Express + Nodemailer
 // Exposes POST /api/send-shares to email Shamir shares to friends
 
+// Load environment variables from .env file
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') })
+
 const express = require('express')
 const cors = require('cors')
 const nodemailer = require('nodemailer')
