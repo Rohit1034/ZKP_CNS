@@ -115,6 +115,9 @@ export async function sendSharesEmail({ recipients, fromEmail, username }) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ recipients, fromEmail, username })
-  })
-  return res.json()
+  });
+  if (!res.ok) {
+    return { status: 'error', message: `Mailer service error: ${res.status} ${res.statusText}` };
+  }
+  return res.json();
 }
