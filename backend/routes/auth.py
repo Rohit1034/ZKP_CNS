@@ -88,8 +88,7 @@ def get_username_from_token():
         try:
             doc = sessions_collection.find_one({"token": token})
             if doc:
-                # store normalized username in session for consistency
-                session = {"username_norm": doc.get("username_norm")}
+                session = {"username": doc.get("username")}
                 # refresh in-memory cache
                 sessions[token] = session
         except Exception:
@@ -98,8 +97,8 @@ def get_username_from_token():
     if not session:
         return None
 
-    # Return normalized username (username_norm) so downstream lookups are consistent
-    return session.get("username_norm")
+    # Sessions are persistent until explicit logout. Do not expire automatically.
+    return session.get("username")
 
 
 
@@ -286,12 +285,10 @@ def verify_proof():
             challenge["used"] = True
             # Generate session token
             token = secrets.token_hex(16)
-            # store normalized username for session persistence
-            username_norm = username.strip().lower()
-            sessions[token] = {"username_norm": username_norm}
-            # Persist session (store username_norm)
+            sessions[token] = {"username": username}
+            # Persist session
             try:
-                sessions_collection.insert_one({"token": token, "username_norm": username_norm, "created_at": datetime.utcnow()})
+                sessions_collection.insert_one({"token": token, "username": username, "created_at": datetime.utcnow()})
             except Exception:
                 # if persistence fails, still allow in-memory session
                 pass
@@ -336,26 +333,24 @@ def get_vault():
     Get the vault_blob for a user.
     Expects query param: ?username=alice
     """
-    username_norm = get_username_from_token()
-    if not username_norm:
+    username = get_username_from_token()
+    if not username:
         return jsonify({"status": "error", "message": "Invalid or expired token"}), 401
 
-    user = users.find_one({"username_norm": username_norm})
-    if not user:
-        return jsonify({"status": "error", "message": "User not found"}), 404
-
+    user, _ = find_user_by_username(username)
     vault_blob = user.get("vault_blob", None)
     return jsonify({"status": "success", "vault_blob": vault_blob})
+
 
 
 @auth_bp.route("/vault", methods=["POST"])
 def update_vault():
     """
     Update the vault_blob for a user.
-    Expects JSON: { vault_blob: { iv, ciphertext, tag, version } }
+    Expects JSON: { username, vault_blob: { iv, ciphertext, tag, version } }
     """
-    username_norm = get_username_from_token()
-    if not username_norm:
+    username = get_username_from_token()
+    if not username:
         return jsonify({"status": "error", "message": "Invalid or expired token"}), 401
 
     data = request.get_json()
@@ -363,20 +358,13 @@ def update_vault():
     if not vault_blob:
         return jsonify({"status": "error", "message": "Missing vault_blob"}), 400
 
-    try:
-        result = users.update_one(
-            {"username_norm": username_norm},
-            {"$set": {"vault_blob": vault_blob, "updated_at": datetime.utcnow()}}
-        )
-        # If no document matched, return a helpful error
-        if result.matched_count == 0:
-            return jsonify({"status": "error", "message": "User not found; vault not stored"}), 404
+    users.update_one({"username_norm": username.strip().lower()}, {"$set": {"vault_blob": vault_blob, "updated_at": datetime.utcnow()}})
+    log_event("VAULT_UPDATE", username=username, details="User updated vault.")
 
-        log_event("VAULT_UPDATE", username=username_norm, details="User updated vault.")
-        return jsonify({"status": "success", "message": "Vault updated successfully"})
-    except Exception as e:
-        log_event("VAULT_UPDATE_ERROR", username=username_norm, details=str(e))
-        return jsonify({"status": "error", "message": "Failed to update vault", "detail": str(e)}), 500
+    return jsonify({"status": "success", "message": "Vault updated successfully"})
+
+
+
 
 @auth_bp.route("/vault/entries", methods=["GET"])
 def get_plain_entries():
@@ -415,11 +403,9 @@ def add_plain_entry():
     entry.setdefault("id", entry_id)
     entry.setdefault("created_at", datetime.utcnow().isoformat())
 
-    # --- FIX: use username_norm for update query ---
-    user, username_norm = find_user_by_username(username)
     try:
-        users.update_one({"username_norm": username_norm}, {"$push": {"plain_entries": entry}, "$set": {"updated_at": datetime.utcnow()}}, upsert=True)
-        log_event("PLAIN_ENTRY_ADD", username=username_norm, details=f"Added plain entry {entry.get('id')}")
+        users.update_one({"username_norm": username.strip().lower()}, {"$push": {"plain_entries": entry}, "$set": {"updated_at": datetime.utcnow()}}, upsert=True)
+        log_event("PLAIN_ENTRY_ADD", username=username, details=f"Added plain entry {entry.get('id')}")
         return jsonify({"status": "success", "message": "Entry saved"}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -437,7 +423,7 @@ def delete_plain_entry(entry_id):
 
     try:
         # Load current entries to handle potential type mismatches or nested id formats.
-        user, username_norm = find_user_by_username(username)
+        user, _ = find_user_by_username(username)
         if not user:
             return jsonify({"status": "error", "message": "User not found"}), 404
 
@@ -450,16 +436,16 @@ def delete_plain_entry(entry_id):
             # Nothing removed
             return jsonify({"status": "success", "message": "Entry not found"}), 200
 
-        # --- FIX: use username_norm for update query ---
         users.update_one(
-            {"username_norm": username_norm},
+            {"username": username},
             {"$set": {"plain_entries": new_entries, "updated_at": datetime.utcnow()}}
         )
-        log_event("PLAIN_ENTRY_DELETE", username=username_norm, details=f"Deleted plain entry {entry_id}")
+        log_event("PLAIN_ENTRY_DELETE", username=username, details=f"Deleted plain entry {entry_id}")
         return jsonify({"status": "success", "message": "Entry deleted"}), 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 
