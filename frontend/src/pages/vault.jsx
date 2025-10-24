@@ -986,7 +986,6 @@ export default function Dashboard() {
                 </label>
               ))}
             </div>
-
             {/* Generate Button */}
             <button
               onClick={generatePassword}
