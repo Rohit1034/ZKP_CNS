@@ -2,81 +2,46 @@
 // Client-side helpers to encrypt/decrypt the private key backup using AES-GCM
 import { deriveRootKey } from './kdf';
 
-const enc = new TextEncoder();
-const dec = new TextDecoder();
+// --- Core encryption helpers ---
 
 export async function encryptBackup(rootKeyBytes, privateHex) {
   // rootKeyBytes: Uint8Array (32 bytes) derived from password
   // privateHex: hex string of private scalar bytes
-  const key = await window.crypto.subtle.importKey(
-    'raw',
-    rootKeyBytes,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey('raw', rootKeyBytes, { name: 'AES-GCM' }, false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
   const data = hexToBytes(privateHex);
-  const ciphertext = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    data
-  );
+
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
 
   return {
-    iv: arrayBufferToBase64(iv.buffer),
+    iv: arrayBufferToBase64(iv),
     ciphertext: arrayBufferToBase64(ciphertext)
   };
 }
 
 export async function decryptBackup(rootKeyBytes, encrypted) {
-  const key = await window.crypto.subtle.importKey(
-    'raw',
-    rootKeyBytes,
-    { name: 'AES-GCM' },
-    false,
-    ['decrypt']
-  );
-
+  const key = await crypto.subtle.importKey('raw', rootKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
   const iv = base64ToArrayBuffer(encrypted.iv);
   const ct = base64ToArrayBuffer(encrypted.ciphertext);
-  const plain = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: new Uint8Array(iv) },
-    key,
-    ct
-  );
+
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
   return bytesToHex(new Uint8Array(plain));
-}
-
-function hexToBytes(hex) {
-  const clean = hex.startsWith('0x') ? hex.slice(2) : hex
-  const len = clean.length
-  const out = new Uint8Array(len / 2)
-  for (let i = 0; i < len; i += 2) out[i / 2] = parseInt(clean.substr(i, 2), 16)
-  return out
-}
-
-function bytesToHex(bytes) {
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-function arrayBufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-function base64ToArrayBuffer(base64) {
-  const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
 }
 
 export async function deriveRootKeyFromPassword(password, salt_kdf, kdf_params) {
   return await deriveRootKey(password, salt_kdf, { iter: kdf_params.iter });
 }
+
+// --- Conversion utilities ---
+
+const hexToBytes = hex =>
+  Uint8Array.from(hex.replace(/^0x/, '').match(/.{1,2}/g).map(b => parseInt(b, 16)));
+
+const bytesToHex = bytes =>
+  [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+
+const arrayBufferToBase64 = buffer =>
+  btoa(String.fromCharCode(...new Uint8Array(buffer)));
+
+const base64ToArrayBuffer = base64 =>
+  Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
