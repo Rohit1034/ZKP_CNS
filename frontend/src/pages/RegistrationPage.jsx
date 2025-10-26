@@ -103,8 +103,10 @@ export default function Register() {
       const res = await register(payload);
 
       if (res.status === 'success') {
-        setStatus('Registration successful!');
-        setTimeout(() => navigate('/login'), 1500);
+        // Store current user for wallet setup
+        localStorage.setItem('current_user', normalizedUsername);
+        setStatus('Registration successful! Redirecting to wallet setup...');
+        setTimeout(() => navigate('/wallet-setup'), 1500);
       } else {
         setStatus(res.message || 'Registration failed');
       }
