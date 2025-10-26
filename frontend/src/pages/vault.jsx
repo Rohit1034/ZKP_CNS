@@ -912,7 +912,7 @@ export default function Dashboard() {
 
       {/* Password Generator Modal */}
       {showPasswordGenerator && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50 bg-black/30 backdrop-blur-sm">
           <div className={`w-full max-w-md rounded-xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'
             }`}>
             <div className="flex items-center justify-between mb-6">
@@ -986,7 +986,6 @@ export default function Dashboard() {
                 </label>
               ))}
             </div>
-
             {/* Generate Button */}
             <button
               onClick={generatePassword}

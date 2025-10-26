@@ -20,6 +20,12 @@ db = client.get_database(os.getenv("MONGO_DBNAME", "zkp_demo"))
 
 users = db.get_collection("users")
 users.create_index("username", unique=True)
+# also index normalized username (lowercased, trimmed) to make lookups resilient
+try:
+    users.create_index("username_norm", unique=True)
+except Exception:
+    # if index creation fails (rare), continue - app will still work using username
+    pass
 
 # Sessions collection to persist session tokens across server restarts
 sessions = db.get_collection("sessions")

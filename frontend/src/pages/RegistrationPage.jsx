@@ -10,7 +10,6 @@ export default function Register() {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(false);
 
-  // Form state
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -23,12 +22,10 @@ export default function Register() {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [status, setStatus] = useState('');
 
-  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
 
-    // Calculate password strength
     if (name === 'password') {
       let strength = 0;
       if (value.length >= 8) strength++;
@@ -53,13 +50,11 @@ export default function Register() {
     return 'Strong';
   };
 
-  // Registration logic
-  // Registration logic
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus('');
 
-    const { username, password, confirmPassword } = formData;
+    const { email, username, password, confirmPassword } = formData;
 
     if (!username) return setStatus('Please enter a username');
     if (!password || password.length < 8)
@@ -69,34 +64,34 @@ export default function Register() {
     try {
       setStatus('Generating PBKDF2 root key...');
 
-      // Normalize username to lowercase for consistent storage
+      // Normalize username
       const normalizedUsername = username.trim().toLowerCase();
 
       // 1. Generate random salt
       const saltArray = crypto.getRandomValues(new Uint8Array(16));
       const saltBase64 = btoa(String.fromCharCode(...saltArray));
 
-      // 2. Use PBKDF2 parameters
+      // 2. KDF params
       const kdf_params = { alg: 'PBKDF2', iter: 100000 };
 
-      // 3. Derive root key using PBKDF2
+      // 3. Derive rootKey
       const saltBytes = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
       const rootKey = await deriveRootKey(password, saltBytes, kdf_params);
 
-
-      // 4. Compute public key Y (no proof generation at registration)
+      // 4. Compute publicY and x
       const { publicY, x } = await computePublicY(rootKey);
 
-      // 5. Store locally for login recomputation - USE NORMALIZED USERNAME
+      // 5. Store locally for login recomputation
       localStorage.setItem(`salt_kdf_${normalizedUsername}`, saltBase64);
       localStorage.setItem(`kdf_params_${normalizedUsername}`, JSON.stringify(kdf_params));
 
-      // 6. Create encrypted backup of private scalar so other devices can recover
+      // 6. Create encrypted backup
       const encrypted_backup = await encryptBackup(rootKey, x.toString(16).padStart(64, '0'));
 
-      // 7. Prepare payload - send original username to server
+      // 7. Prepare payload
       const payload = {
-        username: normalizedUsername, // Send normalized username to server too
+        username: normalizedUsername,
+        email,
         publicY,
         salt_kdf: saltBase64,
         kdf_params,
@@ -104,7 +99,7 @@ export default function Register() {
         vault_blob: null,
       };
 
-      // 8. Register with backend
+      // 8. Call backend
       const res = await register(payload);
 
       if (res.status === 'success') {
@@ -123,7 +118,6 @@ export default function Register() {
         ? 'bg-gradient-to-b from-gray-900 via-gray-900 to-black'
         : 'bg-gradient-to-b from-gray-50 via-white to-gray-100'
       }`}>
-      {/* Background Blur Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {darkMode ? (
           <>
@@ -138,7 +132,6 @@ export default function Register() {
         )}
       </div>
 
-      {/* Dark Mode Toggle */}
       <button
         onClick={() => setDarkMode(!darkMode)}
         className={`fixed top-6 right-6 p-2 rounded-lg transition z-50 ${darkMode
@@ -150,7 +143,6 @@ export default function Register() {
         {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
       </button>
 
-      {/* Back to Home */}
       <button
         onClick={() => navigate('/')}
         className={`fixed top-6 left-6 p-2 rounded-lg transition z-50 ${darkMode
@@ -166,15 +158,12 @@ export default function Register() {
             ? 'bg-gray-800 border border-blue-500 border-opacity-20'
             : 'bg-white'
           }`}>
-          {/* Logo */}
           <div className="flex items-center justify-center mb-6">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${darkMode ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-green-500 to-green-600'
-              }`}>
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${darkMode ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gradient-to-br from-green-500 to-green-600'}`}>
               <Shield className="w-7 h-7 text-white" />
             </div>
           </div>
 
-          {/* Title */}
           <h2 className={`text-3xl font-bold text-center mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             Create Your Account
           </h2>
@@ -182,7 +171,6 @@ export default function Register() {
             Join ZeroVault - Your passwords, truly secure
           </p>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
@@ -257,22 +245,17 @@ export default function Register() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {/* Password Strength Meter */}
               {formData.password && (
                 <div className="mt-3">
                   <div className="flex gap-1 mb-2">
                     {[...Array(6)].map((_, i) => (
                       <div
                         key={i}
-                        className={`h-1.5 flex-1 rounded-full transition-all ${i < passwordStrength ? getStrengthColor() : 'bg-gray-300'
-                          }`}
+                        className={`h-1.5 flex-1 rounded-full transition-all ${i < passwordStrength ? getStrengthColor() : 'bg-gray-300'}`}
                       />
                     ))}
                   </div>
-                  <p className={`text-xs font-medium ${passwordStrength <= 2 ? 'text-red-500' :
-                      passwordStrength <= 4 ? 'text-yellow-500' :
-                        'text-green-500'
-                    }`}>
+                  <p className={`text-xs font-medium ${passwordStrength <= 2 ? 'text-red-500' : passwordStrength <= 4 ? 'text-yellow-500' : 'text-green-500'}`}>
                     Password strength: {getStrengthText()}
                   </p>
                 </div>
@@ -309,22 +292,16 @@ export default function Register() {
             </div>
 
             {/* Privacy Notice */}
-            <div className={`rounded-xl p-4 text-sm flex items-start gap-2 ${darkMode
-                ? 'bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 text-blue-300'
-                : 'bg-green-50 border border-green-200 text-green-800'
-              }`}>
+            <div className={`rounded-xl p-4 text-sm flex items-start gap-2 ${darkMode ? 'bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 text-blue-300' : 'bg-green-50 border border-green-200 text-green-800'}`}>
               <Shield className="w-5 h-5 mt-0.5 flex-shrink-0" />
               <span>
                 Your password is never stored or sent to our servers. All encryption happens locally on your device.
               </span>
             </div>
 
-
-
             {/* Status Message */}
             {status && (
-              <div className={`rounded-xl p-3 mt-2 text-sm font-semibold ${status.includes('successful') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-                }`}>
+              <div className={`rounded-xl p-3 mt-2 text-sm font-semibold ${status.includes('successful') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                 {status}
               </div>
             )}
@@ -333,27 +310,23 @@ export default function Register() {
             <button
               
               type="submit"
-              className={`w-full py-3.5 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 ${darkMode
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
-                  : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-                }`}
+              className={`w-full py-3.5 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 ${darkMode ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'}`}
             >
               <CheckCircle className="w-5 h-5" />
               Create Account
             </button>
-          </form>
 
-          {/* Sign In Link */}
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => navigate('/login')}
-              className={`text-sm font-semibold transition-colors ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-green-600 hover:text-green-700'
-                }`}
-            >
-              Already have an account? <span className="underline">Sign in</span>
-            </button>
-          </div>
+</form>
 
+{/* Sign In Link - outside the form */}
+<div className="mt-6 text-center">
+  <button
+    onClick={() => navigate('/login')}
+    className={`text-sm font-semibold transition-colors ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-green-600 hover:text-green-700'}`}
+  >
+    Already have an account? <span className="underline">Sign in</span>
+  </button>
+</div>
         </div>
       </div>
     </div>
