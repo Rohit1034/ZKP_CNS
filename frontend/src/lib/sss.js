@@ -18,6 +18,7 @@ function bufferToArrayBuffer(buffer) {
  * @param {number} threshold - Shares needed for recovery (T).
  * @returns {Promise<string[]>} - An array of shares (hex strings).
  */
+
 export async function splitMasterKey(masterKey, total, threshold) {
   console.log('🔍 SSS Split: Starting with T=' + threshold + ', N=' + total)
   

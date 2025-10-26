@@ -50,11 +50,15 @@ export async function decryptBackup(rootKeyBytes, encrypted) {
 }
 
 function hexToBytes(hex) {
-  return Uint8Array.from(Buffer.from(hex, 'hex'));
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex
+  const len = clean.length
+  const out = new Uint8Array(len / 2)
+  for (let i = 0; i < len; i += 2) out[i / 2] = parseInt(clean.substr(i, 2), 16)
+  return out
 }
 
 function bytesToHex(bytes) {
-  return Buffer.from(bytes).toString('hex');
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 function arrayBufferToBase64(buffer) {
