@@ -29,38 +29,32 @@ export default function WalletRecoveryPage() {
     if (recoveryProofs.length >= threshold) {
       return setStatus('Threshold already met. Proceed to final recovery.')
     }
-    
+
     if (!recoveryShareInput.trim()) {
       return setStatus('Please enter a secret share.')
     }
 
     setStatus('Validating share format...')
-    
+
     try {
-      // Clean the input - remove whitespace, line breaks
       const cleanedShare = recoveryShareInput.trim().replace(/\s+/g, '')
-      
-      // Validate hex format (should be even length and only hex characters)
       if (!/^[0-9a-fA-F]+$/.test(cleanedShare)) {
         return setStatus('❌ Invalid share format. Share must be a hexadecimal string (0-9, a-f).')
       }
-      
+
       if (cleanedShare.length % 2 !== 0) {
         return setStatus('❌ Invalid share length. Share must have even number of characters.')
       }
-      
-      // Typical SSS share for 256-bit key should be around 66-68 characters (33-34 bytes)
+
       if (cleanedShare.length < 50 || cleanedShare.length > 100) {
-         setStatus('⚠️ Warning: Share length seems unusual. Expected 50-100 hex characters. Continue anyway?')
+        setStatus('⚠️ Warning: Share length seems unusual. Expected 50-100 hex characters. Continue anyway?')
       }
-      
-      // Check if already collected
+
       const alreadyCollected = recoveryProofs.some(p => p.shareHex === cleanedShare)
       if (alreadyCollected) {
         return setStatus('This share was already collected.')
       }
 
-      // Store the validated share
       setRecoveryProofs(prev => [...prev, { shareHex: cleanedShare }])
       setStatus(`✅ Share accepted! Collected ${recoveryProofs.length + 1} of ${threshold} shares.`)
       setRecoveryShareInput('')
@@ -87,56 +81,35 @@ export default function WalletRecoveryPage() {
       console.log('🔍 Attempting to reconstruct key with shares:', sharesToCombine)
       const recoveredMasterKey = await reconstructMasterKey(sharesToCombine)
       console.log('✅ Master key reconstructed successfully')
-      
+
       setStatus('Decrypting wallet with recovered key...')
       await finalRecoveryStep(recoveredMasterKey)
       console.log('✅ Wallet decrypted successfully')
-      
+
       setRecoveredKey(recoveredMasterKey)
       setIsRecovered(true)
       setStatus('✅ Key Recovered! Now logging you in...')
-      
-      // Auto-login with recovered key
+
       await autoLogin(username, recoveredMasterKey)
-      
+
     } catch (error) {
       console.error('❌ Recovery Error:', error)
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      })
       setStatus(`Recovery Failed: ${error.message || 'The shares may be incorrect or corrupted.'}`)
     }
   }
 
   const autoLogin = async (username, recoveredMasterKey) => {
     try {
-      console.log('🔍 Auto-login: Starting for username:', username)
       setStatus('Requesting challenge from server...')
-      
       const challenge = await requestChallenge(username)
-      console.log('🔍 Auto-login: Challenge response:', challenge)
-      
       if (challenge.status !== 'success') {
-        console.error('❌ Auto-login: Challenge request failed:', challenge)
         return setStatus(challenge.message || 'Challenge request failed')
       }
 
-      console.log('✅ Auto-login: Challenge received, generating proof...')
-      
-      // Export the CryptoKey to raw bytes
       const keyBuffer = await crypto.subtle.exportKey('raw', recoveredMasterKey)
       const rootKey = new Uint8Array(keyBuffer)
-      console.log('🔍 Auto-login: Root key length:', rootKey.length)
-
-      // Compute public/private components from recovered key
       const { x } = await computePublicY(rootKey)
-      console.log('🔍 Auto-login: Public key computed')
-
-      // Generate ZK proof using challenge from server
       const { R, s } = await generateProof(x, challenge.c)
-      console.log('🔍 Auto-login: ZK proof generated')
 
       setStatus('Verifying proof and logging in...')
       const result = await verifyLogin({
@@ -145,110 +118,93 @@ export default function WalletRecoveryPage() {
         R,
         s,
       })
-      
-      console.log('🔍 Auto-login: Login verification result:', result)
 
       if (result.status === 'success') {
-        console.log('✅ Auto-login: Login successful!')
         setStatus('✅ Login successful! Redirecting to dashboard...')
         localStorage.setItem('session_token', result.session_token)
         localStorage.setItem('current_user', username)
-        // Mark login status so router guards that check localStorage will recognize login
         localStorage.setItem('isLoggedIn', 'true')
-        // Dispatch a custom event in case other parts of the app listen for it
-        try { window.dispatchEvent(new Event('login-success')) } catch (e) { /* noop */ }
-        
-        console.log('🔍 Auto-login: Redirecting to dashboard in 1.5 seconds...')
-        setTimeout(() => {
-          console.log('🔍 Auto-login: Navigating to /dashboard')
-          navigate('/dashboard')
-        }, 1500)
+        window.dispatchEvent(new Event('login-success'))
+        setTimeout(() => navigate('/dashboard'), 1500)
       } else {
-        console.error('❌ Auto-login: Login verification failed:', result)
         setStatus('Login failed: ' + (result.message || 'Unknown error'))
       }
     } catch (error) {
       console.error('❌ Auto-login: Error occurred:', error)
-      console.error('Error stack:', error.stack)
       setStatus('Auto-login failed: ' + error.message)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 relative">
-      {/* Back Button - Top Left */}
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white p-4 relative">
       <button
         onClick={() => navigate('/homepage')}
         aria-label="Go back"
-        className="fixed top-6 left-6 z-50 w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 text-slate-700 border border-gray-200 shadow-sm hover:bg-gray-200 active:bg-gray-300 transition-colors"
+        className="fixed top-6 left-6 z-50 w-10 h-10 flex items-center justify-center rounded-xl bg-green-100 text-green-700 border border-green-200 shadow-sm hover:bg-green-200 active:bg-green-300 transition-colors"
       >
         <span className="text-xl font-bold leading-none">&larr;</span>
       </button>
-      
+
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="text-center py-6">
-          <h1 className="text-4xl font-extrabold text-blue-800 mb-2">Recover Your Account</h1>
-          <p className="text-blue-700 text-lg">Use Secret Shares from Your Trusted Friends</p>
-          <p className="text-blue-600 text-sm mt-2">
+          <h1 className="text-4xl font-extrabold text-green-800 mb-2">Recover Your Account</h1>
+          <p className="text-green-700 text-lg">Use Secret Shares from Your Trusted Friends</p>
+          <p className="text-green-600 text-sm mt-2">
             Enter {threshold} secret shares to reconstruct your master key and regain access.
           </p>
         </div>
 
-        {/* --- RECOVERY SECTION --- */}
-        <div className="p-6 border-2 border-blue-200 rounded-xl shadow-lg bg-white">
-          <h3 className="text-2xl font-bold mb-4 text-blue-800 border-b-2 border-blue-200 pb-2">
+        <div className="p-6 border-2 border-green-200 rounded-xl shadow-lg bg-white">
+          <h3 className="text-2xl font-bold mb-4 text-green-800 border-b-2 border-green-200 pb-2">
             Enter Your Username & Secret Shares
           </h3>
 
-          {/* Username Input */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2 text-blue-700">Your Username</label>
+            <label className="block text-sm font-semibold mb-2 text-green-700">Your Username</label>
             <input 
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter your username"
-              className="border-2 border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 p-3 rounded-lg w-full outline-none transition-all"
+              className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full outline-none transition-all"
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-semibold mb-2 text-blue-700">Secret Shares</label>
-            <p className="text-sm mb-3 text-blue-600">
+            <label className="block text-sm font-semibold mb-2 text-green-700">Secret Shares</label>
+            <p className="text-sm mb-3 text-green-600">
               Ask your trusted friends for the secret shares they received via email. Enter them one by one below.
             </p>
-            
-            {/* Instructions box */}
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
-              <p className="text-sm font-semibold text-blue-800 mb-2">📋 How to paste shares:</p>
-              <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+
+            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-4">
+              <p className="text-sm font-semibold text-green-800 mb-2">📋 How to paste shares:</p>
+              <ul className="text-xs text-green-700 space-y-1 list-disc list-inside">
                 <li>Copy the entire hex string from your friend's email</li>
                 <li>Paste it exactly as received (spaces and line breaks will be removed automatically)</li>
                 <li>The share should look like: <code className="bg-white px-1 rounded">a3f5e8b2c1d4...</code></li>
                 <li>Each share is unique - you need {threshold} different shares</li>
               </ul>
             </div>
-            
+
             <textarea
               value={recoveryShareInput}
               onChange={(e) => setRecoveryShareInput(e.target.value)}
               placeholder="Paste a friend's Secret Share here (hex string)"
               rows={3}
-              className="border-2 border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 p-3 rounded-lg w-full mb-3 outline-none transition-all font-mono text-sm"
+              className="border-2 border-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-200 p-3 rounded-lg w-full mb-3 outline-none transition-all font-mono text-sm"
             />
             <Button 
               onClick={handleFriendSubmitProof} 
               disabled={!recoveryShareInput}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
             >
               Add Share ({recoveryProofs.length}/{threshold})
             </Button>
           </div>
 
-          <div className="pt-6 border-t-2 border-blue-200">
-            <h4 className="font-semibold text-lg mb-3 text-blue-700">Collected Shares</h4>
-            
-            {/* Display collected shares */}
+          <div className="pt-6 border-t-2 border-green-200">
+            <h4 className="font-semibold text-lg mb-3 text-green-700">Collected Shares</h4>
+
             {recoveryProofs.length > 0 && (
               <div className="mb-4 space-y-2">
                 {recoveryProofs.map((proof, idx) => (
@@ -261,16 +217,16 @@ export default function WalletRecoveryPage() {
                 ))}
               </div>
             )}
-            
-            <div className="text-base mb-4 font-medium text-blue-800">
-              Shares Collected: <span className="text-blue-600 font-bold">{recoveryProofs.length}</span> / {threshold} required
+
+            <div className="text-base mb-4 font-medium text-green-800">
+              Shares Collected: <span className="text-green-600 font-bold">{recoveryProofs.length}</span> / {threshold} required
             </div>
-            
+
             {recoveryProofs.length >= threshold ? (
               <Button 
                 onClick={handleFinalRecovery}
                 disabled={!username}
-                className="bg-blue-700 hover:bg-blue-800 text-white font-bold px-6 py-3 rounded-lg shadow-md transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="bg-green-700 hover:bg-green-800 text-white font-bold px-6 py-3 rounded-lg shadow-md transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Reconstruct Key & Auto-Login
               </Button>
@@ -284,9 +240,9 @@ export default function WalletRecoveryPage() {
           </div>
         </div>
 
-        <div className="mt-4 p-4 border-2 border-blue-200 rounded-xl bg-white shadow-sm">
-          <div className="text-sm font-semibold text-blue-700">Status:</div>
-          <div className="text-base font-medium text-blue-800 mt-1">
+        <div className="mt-4 p-4 border-2 border-green-200 rounded-xl bg-white shadow-sm">
+          <div className="text-sm font-semibold text-green-700">Status:</div>
+          <div className="text-base font-medium text-green-800 mt-1">
             {status || 'Enter secret shares from your friends to begin recovery...'}
           </div>
         </div>
