@@ -153,6 +153,10 @@ export default function WalletRecoveryPage() {
         setStatus('✅ Login successful! Redirecting to dashboard...')
         localStorage.setItem('session_token', result.session_token)
         localStorage.setItem('current_user', username)
+        // Mark login status so router guards that check localStorage will recognize login
+        localStorage.setItem('isLoggedIn', 'true')
+        // Dispatch a custom event in case other parts of the app listen for it
+        try { window.dispatchEvent(new Event('login-success')) } catch (e) { /* noop */ }
         
         console.log('🔍 Auto-login: Redirecting to dashboard in 1.5 seconds...')
         setTimeout(() => {
@@ -174,7 +178,7 @@ export default function WalletRecoveryPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-4 relative">
       {/* Back Button - Top Left */}
       <button
-        onClick={() => navigate('/login')}
+        onClick={() => navigate('/homepage')}
         aria-label="Go back"
         className="fixed top-6 left-6 z-50 w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 text-slate-700 border border-gray-200 shadow-sm hover:bg-gray-200 active:bg-gray-300 transition-colors"
       >

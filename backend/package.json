@@ -9,7 +9,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.1",
-    "nodemailer": "^7.0.9",
+    "nodemailer": "^7.0.10",
     "shamirs-secret-sharing": "^2.0.1"
   }
 }

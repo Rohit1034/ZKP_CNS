@@ -45,7 +45,7 @@ export default function App() {
         <Route path="/wallet-recovery" element={<WalletRecoveryPage />} />
         <Route
           path="/dashboard"
-          element={isLoggedIn ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/login" />}
+          element={(localStorage.getItem('isLoggedIn') === 'true' || !!localStorage.getItem('session_token')) ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/login" />}
         />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
