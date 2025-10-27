@@ -12,8 +12,8 @@ window.Buffer = Buffer;
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    // Check if user is already logged in from localStorage
-    return localStorage.getItem('isLoggedIn') === 'true';
+    // Check if user is already logged in from localStorage or a persisted session token
+    return localStorage.getItem('isLoggedIn') === 'true' || !!localStorage.getItem('session_token');
   });
 
   const handleLoginSuccess = () => {
@@ -29,10 +29,20 @@ export default function App() {
   // Optional: Sync with storage (in case multiple tabs are open)
   useEffect(() => {
     const syncLogin = () => {
-      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true');
+      setIsLoggedIn(localStorage.getItem('isLoggedIn') === 'true' || !!localStorage.getItem('session_token'));
     };
+
+    // Listen to cross-tab storage events
     window.addEventListener('storage', syncLogin);
-    return () => window.removeEventListener('storage', syncLogin);
+
+    // Listen to custom login-success event dispatched by pages that perform programmatic login
+    const onLoginSuccess = () => handleLoginSuccess();
+    window.addEventListener('login-success', onLoginSuccess);
+
+    return () => {
+      window.removeEventListener('storage', syncLogin);
+      window.removeEventListener('login-success', onLoginSuccess);
+    };
   }, []);
 
   return (
