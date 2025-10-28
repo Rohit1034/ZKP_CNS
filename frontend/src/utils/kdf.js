@@ -1,5 +1,6 @@
+import { scrypt } from 'scrypt-js';
+
 export async function deriveRootKey(password, saltBytes, kdf_params) {
-  // Normalize salt into a Uint8Array (supports Uint8Array, ArrayBuffer, Array<number>, base64 string, utf-8 string)
   const enc = new TextEncoder();
 
   function base64ToBytes(b64) {
@@ -15,7 +16,6 @@ export async function deriveRootKey(password, saltBytes, kdf_params) {
     if (salt instanceof ArrayBuffer) return new Uint8Array(salt);
     if (Array.isArray(salt)) return new Uint8Array(salt);
     if (typeof salt === 'string') {
-      // Try base64 first; if it fails, fall back to UTF-8 bytes
       try {
         return base64ToBytes(salt);
       } catch {
@@ -27,37 +27,23 @@ export async function deriveRootKey(password, saltBytes, kdf_params) {
 
   const saltUA = toUint8ArraySalt(saltBytes);
 
-  console.log('deriveRootKey called with:', {
-    salt_input_type: saltBytes?.constructor?.name || typeof saltBytes,
-    salt_final_type: saltUA?.constructor?.name,
-    salt_final_length: saltUA?.length,
-    kdf_params,
-  });
-
   if (!saltUA || !saltUA.length) {
     throw new Error('Salt is empty or invalid');
   }
 
-  const { iter } = kdf_params;
+  // Extract or default scrypt parameters
+  const {
+    N = 16384, // CPU/memory cost (must be power of 2)
+    r = 8,     // block size
+    p = 1,     // parallelization
+    dkLen = 32 // derived key length (32 bytes)
+  } = kdf_params || {};
 
-  const keyMaterial = await window.crypto.subtle.importKey(
-    'raw',
-    enc.encode(password),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
+  // Convert password to Uint8Array
+  const passwordBytes = enc.encode(password);
 
-  const derivedBits = await window.crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: saltUA,
-      iterations: iter,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    256
-  );
+  // Perform scrypt key derivation
+  const derivedKey = await scrypt(passwordBytes, saltUA, N, r, p, dkLen);
 
-  return new Uint8Array(derivedBits);
+  return new Uint8Array(derivedKey);
 }

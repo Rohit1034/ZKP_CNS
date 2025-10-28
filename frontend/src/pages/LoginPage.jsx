@@ -37,17 +37,28 @@ export default function Login({ onLoginSuccess }) {
       if (challenge.status !== 'success')
         return setStatus(challenge.message || 'Challenge request failed');
 
-      // Retrieve KDF data from localStorage
-      let salt_kdf = localStorage.getItem(`salt_kdf_${username}`);
-      let kdf_params = JSON.parse(localStorage.getItem(`kdf_params_${username}`) || 'null');
+      // Retrieve KDF data (prefer localStorage, fallback to challenge)
+let salt_kdf = localStorage.getItem(`salt_kdf_${username}`);
+let kdf_params = JSON.parse(localStorage.getItem(`kdf_params_${username}`) || 'null');
 
-      if (!salt_kdf || !kdf_params) {
-        // fallback to challenge-provided KDF
-        salt_kdf = challenge.salt_kdf || salt_kdf;
-        kdf_params = challenge.kdf_params || kdf_params;
-      }
+// Fallback to challenge-provided KDF data
+if (!salt_kdf || !kdf_params) {
+  salt_kdf = challenge.salt_kdf || salt_kdf;
+  kdf_params = challenge.kdf_params || kdf_params;
+}
 
-      if (!salt_kdf || !kdf_params) return setStatus('No KDF data found. Please re-register.');
+// Default to scrypt if KDF type not specified (backward compatibility)
+if (!kdf_params || !kdf_params.kdf) {
+  kdf_params = {
+    kdf: 'scrypt',
+    N: 16384, // cost factor
+    r: 8,
+    p: 1,
+    dkLen: 32,
+  };
+}
+
+if (!salt_kdf) return setStatus('No salt found. Please re-register.');
 
       // Convert base64 salt to Uint8Array
       const saltBytes = Uint8Array.from(atob(salt_kdf), c => c.charCodeAt(0));
