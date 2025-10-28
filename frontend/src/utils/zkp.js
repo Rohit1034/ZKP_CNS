@@ -1,17 +1,17 @@
-// zkp.js
+
 import * as secp from '@noble/secp256k1';
 
 // curve order (used for modular arithmetic)
 const n = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141');
 
-// ---- Helper: convert Uint8Array → BigInt ----
+// convert Uint8Array → BigInt
 function bytesToBigInt(bytes) {
   let num = 0n;
   for (const b of bytes) num = (num << 8n) + BigInt(b);
   return num;
 }
 
-// ---- Helper: hex ↔ bytes compatibility (for older versions of secp256k1) ----
+// hex ↔ bytes compatibility (for older versions of secp256k1)
 function hexToBytes(hex) {
   if (typeof secp.utils?.hexToBytes === 'function') return secp.utils.hexToBytes(hex);
   return Uint8Array.from(Buffer.from(hex, 'hex'));
@@ -22,7 +22,7 @@ function bytesToHex(bytes) {
   return Buffer.from(bytes).toString('hex');
 }
 
-// ---- Helper: randomBytes fallback ----
+// randomBytes fallback 
 function randomBytes(length) {
   if (typeof secp.utils?.randomBytes === 'function') return secp.utils.randomBytes(length);
   const arr = new Uint8Array(length);
@@ -36,14 +36,14 @@ function randomBytes(length) {
   return arr;
 }
 
-// ---- Convert rootKey → scalar x ----
+//Convert rootKey → scalar x 
 export function rootKeyToScalar(rootKey) {
   // map key bytes into a valid scalar in [1, n-1]
   const x = (bytesToBigInt(rootKey) % (n - 1n)) + 1n;
   return x;
 }
 
-// ---- Compute public key Y = x * G ----
+// Compute public key Y = x * G 
 export function computePublicY(rootKey) {
   const x = rootKeyToScalar(rootKey);
   const privHex = x.toString(16).padStart(64, '0');
@@ -57,7 +57,7 @@ export function computePublicY(rootKey) {
   return { x, publicY: pubHex };
 }
 
-// ---- Generate Schnorr proof ----
+//  Generate Schnorr proof 
 export async function generateProof(x, serverChallenge) {
   // random nonce k
   const kBytes = randomBytes(32);

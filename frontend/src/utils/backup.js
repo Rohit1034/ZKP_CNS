@@ -29,8 +29,9 @@ export async function decryptBackup(rootKeyBytes, encrypted) {
 }
 
 export async function deriveRootKeyFromPassword(password, salt_kdf, kdf_params) {
-  return await deriveRootKey(password, salt_kdf, { iter: kdf_params.iter });
+  return await deriveRootKey(password, salt_kdf, kdf_params);
 }
+
 
 // --- Conversion utilities ---
 

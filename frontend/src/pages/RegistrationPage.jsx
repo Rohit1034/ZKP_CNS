@@ -62,21 +62,28 @@ export default function Register() {
     if (password !== confirmPassword) return setStatus('Passwords do not match');
 
     try {
-      setStatus('Generating PBKDF2 root key...');
+      setStatus('Generating scrypt root key...');
 
-      // Normalize username
-      const normalizedUsername = username.trim().toLowerCase();
+// Normalize username
+const normalizedUsername = username.trim().toLowerCase();
 
-      // 1. Generate random salt
-      const saltArray = crypto.getRandomValues(new Uint8Array(16));
-      const saltBase64 = btoa(String.fromCharCode(...saltArray));
+// 1. Generate random salt
+const saltArray = crypto.getRandomValues(new Uint8Array(16));
+const saltBase64 = btoa(String.fromCharCode(...saltArray));
 
-      // 2. KDF params
-      const kdf_params = { alg: 'PBKDF2', iter: 100000 };
+// 2. KDF params for scrypt
+const kdf_params = {
+  alg: 'scrypt',
+  N: 16384,   // CPU/memory cost
+  r: 8,       // block size
+  p: 1,       // parallelization
+  dkLen: 32   // derived key length (32 bytes = 256 bits)
+};
 
-      // 3. Derive rootKey
-      const saltBytes = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
-      const rootKey = await deriveRootKey(password, saltBytes, kdf_params);
+// 3. Derive rootKey using scrypt
+const saltBytes = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
+const rootKey = await deriveRootKey(password, saltBytes, kdf_params);
+
 
       // 4. Compute publicY and x
       const { publicY, x } = await computePublicY(rootKey);
