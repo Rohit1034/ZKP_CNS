@@ -28,7 +28,7 @@ export async function verifyLogin(payload) {
   return res.json();
 }
 
-// 🟢 ENCRYPTED VAULT FUNCTIONS
+//ENCRYPTED VAULT FUNCTIONS
 export async function getVault() {
   const sessionToken = localStorage.getItem('session_token');
   if (!sessionToken)

@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createSocialWallet } from '../lib/wallet_recovery'
+//import { createSocialWallet } from '../lib/wallet_recovery'
 import { sendSharesEmail } from '../utils/api'
 import { deriveRootKey } from '../utils/kdf'
 import { splitMasterKey } from '../lib/sss'
@@ -75,7 +75,7 @@ export default function WalletSetupPage() {
       const pubJwk = await crypto.subtle.exportKey('jwk', walletKeypair.publicKey)
       const privPkcs8 = await crypto.subtle.exportKey('pkcs8', walletKeypair.privateKey)
       const privBase64 = btoa(String.fromCharCode(...new Uint8Array(privPkcs8)))
-      console.log('✅ Wallet Setup: ECDSA keypair generated, private key length:', privBase64.length)
+     
       
       // 2. Encrypt the wallet private key with the master key
       setStatus('Encrypting wallet with master key...')
@@ -85,7 +85,7 @@ export default function WalletSetupPage() {
         masterKey,
         new TextEncoder().encode(privBase64)
       )
-      console.log('✅ Wallet Setup: Wallet encrypted, ciphertext length:', encrypted.byteLength)
+    
       
       // Store encrypted wallet and public key
       localStorage.setItem('wallet_priv_final_enc', JSON.stringify({
@@ -93,14 +93,13 @@ export default function WalletSetupPage() {
         iv: Array.from(ivBytes)
       }))
       localStorage.setItem('wallet_pub_jwk', JSON.stringify(pubJwk))
-      console.log('✅ Wallet Setup: Encrypted wallet stored in localStorage')
+   
       
       setStatus('Splitting master key into shares...')
       
       // 3. Split the master key into shares
       const hexShares = await splitMasterKey(masterKey, totalShares, threshold)
-      console.log('✅ Wallet Setup: Master key split into', hexShares.length, 'shares')
-      console.log('Share lengths:', hexShares.map(s => s.length))
+     
       
       // Prepare shares for friends (simple format, no Schnorr commitments for now)
       const sharesForFriends = hexShares.map((shareHex, index) => ({
@@ -122,7 +121,7 @@ export default function WalletSetupPage() {
 
       const resp = await sendSharesEmail({ recipients, fromEmail: senderEmail, username })
       if (resp.status === 'success') {
-        setStatus(`✅ Emails sent to ${resp.sent} friend(s). Setup complete!`)
+        setStatus(`Emails sent to ${resp.sent} friend(s). Setup complete!`)
         // Redirect to login after 2 seconds
         setTimeout(() => navigate('/login'), 2000)
       } else {

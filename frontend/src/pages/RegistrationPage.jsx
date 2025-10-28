@@ -62,7 +62,7 @@ export default function Register() {
     if (password !== confirmPassword) return setStatus('Passwords do not match');
 
     try {
-      setStatus('Generating PBKDF2 root key...');
+      
 
       // Normalize username
       const normalizedUsername = username.trim().toLowerCase();

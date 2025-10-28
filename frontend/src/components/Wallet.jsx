@@ -1,4 +1,3 @@
-// ...existing code...
 import * as React from 'react'
 import { deriveAesKeyFromPassword, encryptData, decryptData } from '@/lib/aes'
 import { Button } from '@/components/ui/button'
@@ -27,7 +26,7 @@ export default function Wallet() {
       setEncryptedPriv(JSON.stringify(enc))
       setPubJwk(JSON.stringify(pubJwkObj))
       setStatus('Wallet created and encrypted locally.')
-    } catch (e) {
+    } catch  {
       setStatus('Failed to create wallet')
     }
   }
@@ -49,7 +48,7 @@ export default function Wallet() {
         ['sign']
       )
       setStatus('Wallet unlocked (private key imported into session).')
-    } catch (e) {
+    } catch {
       setStatus('Failed to decrypt wallet: wrong password?')
     }
   }
@@ -69,4 +68,3 @@ export default function Wallet() {
     </div>
   )
 }
-// ...existing code...

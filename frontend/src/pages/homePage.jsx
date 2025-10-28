@@ -7,7 +7,6 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
   const [sessionToken, setSessionToken] = useState(null);
   const [sessionUser, setSessionUser] = useState(null); // will read from `current_user` localStorage key
@@ -85,7 +84,7 @@ export default function LandingPage() {
             <button onClick={() => scrollToSection('features')} className={`transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600'}`}>Features</button>
             <button onClick={() => scrollToSection('how-it-works')} className={`transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600'}`}>How It Works</button>
             <button onClick={() => scrollToSection('security')} className={`transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600'}`}>Security</button>
-            <button onClick={() => scrollToSection('trust')} className={`transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600'}`}>Why Trust Us</button>
+            
           </nav>
 
 
@@ -145,7 +144,7 @@ export default function LandingPage() {
               <button onClick={() => scrollToSection('features')} className={`text-left transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600 text-gray-700'}`}>Features</button>
               <button onClick={() => scrollToSection('how-it-works')} className={`text-left transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600 text-gray-700'}`}>How It Works</button>
               <button onClick={() => scrollToSection('security')} className={`text-left transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600 text-gray-700'}`}>Security</button>
-              <button onClick={() => scrollToSection('trust')} className={`text-left transition ${darkMode ? 'hover:text-blue-400' : 'hover:text-green-600 text-gray-700'}`}>Why Trust Us</button>
+             
               
               {/* Mobile Dark Mode Toggle */}
               <button
@@ -615,174 +614,14 @@ export default function LandingPage() {
           </div>
 
 
-          {/* Performance Metrics */}
-          <div className={`rounded-lg p-8 ${
-            darkMode 
-              ? 'bg-gray-800 bg-opacity-50 backdrop-blur-sm border border-blue-500 border-opacity-20' 
-              : 'bg-white border border-green-200 shadow-md'
-          }`}>
-            <h3 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Performance You'll Love</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className={`text-2xl font-bold mb-2 ${darkMode ? 'text-blue-400' : 'text-green-600'}`}>120ms</div>
-                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Password Processing</div>
-              </div>
-              <div className="text-center">
-                <div className={`text-2xl font-bold mb-2 ${darkMode ? 'text-purple-400' : 'text-green-600'}`}>2ms</div>
-                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Proof Generation</div>
-              </div>
-              <div className="text-center">
-                <div className={`text-2xl font-bold mb-2 ${darkMode ? 'text-pink-400' : 'text-green-600'}`}>1.5ms</div>
-                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Verification</div>
-              </div>
-              <div className="text-center">
-                <div className={`text-2xl font-bold mb-2 ${darkMode ? 'text-cyan-400' : 'text-green-600'}`}>&lt;1ms</div>
-                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Vault Access</div>
-              </div>
-            </div>
-          </div>
+          
+            
+          
         </div>
       </section>
 
 
-      {/* Why Trust Us Section */}
-      <section id="trust" className={`py-20 px-6 ${darkMode ? '' : 'bg-gray-50'}`}>
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className={`text-5xl md:text-6xl font-bold mb-4 ${darkMode ? '' : 'text-gray-900'}`}>
-              Why You Can Trust ZeroVault
-            </h2>
-            <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              We're built on principles of transparency and security
-            </p>
-          </div>
-
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className={`rounded-xl p-8 transition ${
-              darkMode 
-                ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-green-500 border-opacity-20' 
-                : 'bg-white border border-green-200 hover:shadow-lg'
-            }`}>
-              <Shield className={`w-12 h-12 mb-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-              <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Open Source</h3>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Our code is available for anyone to audit. No hidden logic, no backdoors. Full transparency on how your security works.
-              </p>
-            </div>
-
-
-            <div className={`rounded-xl p-8 transition ${
-              darkMode 
-                ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-green-500 border-opacity-20' 
-                : 'bg-white border border-green-200 hover:shadow-lg'
-            }`}>
-              <Shield className={`w-12 h-12 mb-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-              <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Independently Audited</h3>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Our cryptographic implementation is verified by security experts. We stand behind the strength of our algorithms.
-              </p>
-            </div>
-
-
-            <div className={`rounded-xl p-8 transition ${
-              darkMode 
-                ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-green-500 border-opacity-20' 
-                : 'bg-white border border-green-200 hover:shadow-lg'
-            }`}>
-              <Shield className={`w-12 h-12 mb-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-              <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>No Passwords Ever Stored</h3>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                We don't store your master password. We can't recover it. We prove you own it without ever knowing it.
-              </p>
-            </div>
-
-
-            <div className={`rounded-xl p-8 transition ${
-              darkMode 
-                ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-green-500 border-opacity-20' 
-                : 'bg-white border border-green-200 hover:shadow-lg'
-            }`}>
-              <Shield className={`w-12 h-12 mb-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-              <h3 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>Privacy First</h3>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Your data belongs to you. We never sell information, and we never use it for any purpose other than serving you.
-              </p>
-            </div>
-          </div>
-
-
-          {/* Comparison Table */}
-          <div className={`mt-16 rounded-lg overflow-hidden ${
-            darkMode 
-              ? 'bg-gray-800 bg-opacity-50 backdrop-blur-sm border border-blue-500 border-opacity-20' 
-              : 'bg-white border border-green-200 shadow-md'
-          }`}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm md:text-base">
-                <thead>
-                  <tr className={`border-b ${
-                    darkMode 
-                      ? 'border-blue-500 border-opacity-20' 
-                      : 'bg-green-50 border-green-200'
-                  }`}>
-                    <th className={`text-left p-4 font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Feature</th>
-                    <th className={`text-center p-4 font-bold ${darkMode ? 'text-blue-300' : 'text-green-700'}`}>ZeroVault</th>
-                    <th className={`text-center p-4 font-bold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Traditional Managers</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className={`border-b transition ${
-                    darkMode 
-                      ? 'border-blue-500 border-opacity-10 hover:bg-blue-500 hover:bg-opacity-5' 
-                      : 'border-green-100 hover:bg-green-50'
-                  }`}>
-                    <td className={`p-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Password Ever Stored</td>
-                    <td className="text-center p-4"><CheckCircle className={`w-5 h-5 mx-auto ${darkMode ? 'text-green-400' : 'text-green-600'}`} /></td>
-                    <td className="text-center p-4"><X className={`w-5 h-5 mx-auto ${darkMode ? 'text-red-400' : 'text-red-500'}`} /></td>
-                  </tr>
-                  <tr className={`border-b transition ${
-                    darkMode 
-                      ? 'border-blue-500 border-opacity-10 hover:bg-blue-500 hover:bg-opacity-5' 
-                      : 'border-green-100 hover:bg-green-50'
-                  }`}>
-                    <td className={`p-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Client-Side Encryption</td>
-                    <td className="text-center p-4"><CheckCircle className={`w-5 h-5 mx-auto ${darkMode ? 'text-green-400' : 'text-green-600'}`} /></td>
-                    <td className="text-center p-4"><X className={`w-5 h-5 mx-auto ${darkMode ? 'text-red-400' : 'text-red-500'}`} /></td>
-                  </tr>
-                  <tr className={`border-b transition ${
-                    darkMode 
-                      ? 'border-blue-500 border-opacity-10 hover:bg-blue-500 hover:bg-opacity-5' 
-                      : 'border-green-100 hover:bg-green-50'
-                  }`}>
-                    <td className={`p-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Zero-Knowledge Proof</td>
-                    <td className="text-center p-4"><CheckCircle className={`w-5 h-5 mx-auto ${darkMode ? 'text-green-400' : 'text-green-600'}`} /></td>
-                    <td className="text-center p-4"><X className={`w-5 h-5 mx-auto ${darkMode ? 'text-red-400' : 'text-red-500'}`} /></td>
-                  </tr>
-                  <tr className={`border-b transition ${
-                    darkMode 
-                      ? 'border-blue-500 border-opacity-10 hover:bg-blue-500 hover:bg-opacity-5' 
-                      : 'border-green-100 hover:bg-green-50'
-                  }`}>
-                    <td className={`p-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Immutable Audit Trail</td>
-                    <td className="text-center p-4"><CheckCircle className={`w-5 h-5 mx-auto ${darkMode ? 'text-green-400' : 'text-green-600'}`} /></td>
-                    <td className="text-center p-4"><CheckCircle className={`w-5 h-5 mx-auto ${darkMode ? 'text-green-400' : 'text-green-600'}`} /></td>
-                  </tr>
-                  <tr className={`transition ${
-                    darkMode 
-                      ? 'hover:bg-blue-500 hover:bg-opacity-5' 
-                      : 'hover:bg-green-50'
-                  }`}>
-                    <td className={`p-4 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Open Source</td>
-                    <td className="text-center p-4"><CheckCircle className={`w-5 h-5 mx-auto ${darkMode ? 'text-green-400' : 'text-green-600'}`} /></td>
-                    <td className="text-center p-4"><X className={`w-5 h-5 mx-auto ${darkMode ? 'text-red-400' : 'text-red-500'}`} /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
+      
 
 
       {/* CTA Section */}

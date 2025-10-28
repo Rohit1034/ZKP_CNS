@@ -2,7 +2,7 @@
 export async function deriveVaultKey(rootKey, username) {
   const enc = new TextEncoder();
   
-  
+
   // HKDF-like derivation
   // importKey for HMAC requires an algorithm object with hash
   const key = await crypto.subtle.importKey('raw', rootKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);

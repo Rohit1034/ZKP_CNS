@@ -269,7 +269,7 @@ def verify_proof():
         # Decode R (client nonce) from compressed
         R_bytes = unhexlify(R_hex)
         R_vk = VerifyingKey.from_string(R_bytes, curve=SECP256k1)  # supports compressed
-
+    
         # Recompute c exactly as frontend: SHA256(challenge || R || Y)
         challenge_bytes = str(challenge["c"]).encode()  # original backend challenge integer
         data_bytes = challenge_bytes + R_bytes + Y_bytes
@@ -309,12 +309,12 @@ def verify_proof():
     except Exception as e:
         import traceback as _tb
         tb = _tb.format_exc()
-        # Log the exception with traceback for debugging
+       
         try:
             log_event("VERIFY_ERROR", username=username, details=tb)
         except Exception:
             pass
-        # Also write to stdout via logging file (audit.log will have it via log_event)
+        
         try:
             from utils import logger as _logger
             _logger.logging.error(tb)

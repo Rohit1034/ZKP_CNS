@@ -2,7 +2,6 @@
 // Client-side helpers to encrypt/decrypt the private key backup using AES-GCM
 import { deriveRootKey } from './kdf';
 
-// --- Core encryption helpers ---
 
 export async function encryptBackup(rootKeyBytes, privateHex) {
   // rootKeyBytes: Uint8Array (32 bytes) derived from password

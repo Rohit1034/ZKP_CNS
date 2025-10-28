@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { generateRecoveryProof, verifySchnorrProof, finalRecoveryStep } from '../lib/wallet_recovery'
+import {  finalRecoveryStep } from '../lib/wallet_recovery'
 import { reconstructMasterKey } from '../lib/sss'
 import { requestChallenge, verifyLogin } from '../utils/api'
 import { computePublicY, generateProof } from '../utils/zkp'
@@ -39,15 +39,15 @@ export default function WalletRecoveryPage() {
     try {
       const cleanedShare = recoveryShareInput.trim().replace(/\s+/g, '')
       if (!/^[0-9a-fA-F]+$/.test(cleanedShare)) {
-        return setStatus('❌ Invalid share format. Share must be a hexadecimal string (0-9, a-f).')
+        return setStatus('Invalid share format. Share must be a hexadecimal string (0-9, a-f).')
       }
 
       if (cleanedShare.length % 2 !== 0) {
-        return setStatus('❌ Invalid share length. Share must have even number of characters.')
+        return setStatus('Invalid share length. Share must have even number of characters.')
       }
 
       if (cleanedShare.length < 50 || cleanedShare.length > 100) {
-        setStatus('⚠️ Warning: Share length seems unusual. Expected 50-100 hex characters. Continue anyway?')
+        setStatus('Warning: Share length seems unusual. Expected 50-100 hex characters. Continue anyway?')
       }
 
       const alreadyCollected = recoveryProofs.some(p => p.shareHex === cleanedShare)
@@ -56,7 +56,7 @@ export default function WalletRecoveryPage() {
       }
 
       setRecoveryProofs(prev => [...prev, { shareHex: cleanedShare }])
-      setStatus(`✅ Share accepted! Collected ${recoveryProofs.length + 1} of ${threshold} shares.`)
+      setStatus(`Share accepted! Collected ${recoveryProofs.length + 1} of ${threshold} shares.`)
       setRecoveryShareInput('')
     } catch (error) {
       console.error(error)
@@ -80,20 +80,20 @@ export default function WalletRecoveryPage() {
     try {
       console.log('🔍 Attempting to reconstruct key with shares:', sharesToCombine)
       const recoveredMasterKey = await reconstructMasterKey(sharesToCombine)
-      console.log('✅ Master key reconstructed successfully')
+      console.log('Master key reconstructed successfully')
 
       setStatus('Decrypting wallet with recovered key...')
       await finalRecoveryStep(recoveredMasterKey)
-      console.log('✅ Wallet decrypted successfully')
+      console.log('Wallet decrypted successfully')
 
       setRecoveredKey(recoveredMasterKey)
       setIsRecovered(true)
-      setStatus('✅ Key Recovered! Now logging you in...')
+      setStatus('Key Recovered! Now logging you in...')
 
       await autoLogin(username, recoveredMasterKey)
 
     } catch (error) {
-      console.error('❌ Recovery Error:', error)
+      console.error('Recovery Error:', error)
       setStatus(`Recovery Failed: ${error.message || 'The shares may be incorrect or corrupted.'}`)
     }
   }
@@ -120,7 +120,7 @@ export default function WalletRecoveryPage() {
       })
 
       if (result.status === 'success') {
-        setStatus('✅ Login successful! Redirecting to dashboard...')
+        setStatus('Login successful! Redirecting to dashboard...')
         localStorage.setItem('session_token', result.session_token)
         localStorage.setItem('current_user', username)
         localStorage.setItem('isLoggedIn', 'true')

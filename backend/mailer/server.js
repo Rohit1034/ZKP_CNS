@@ -1,7 +1,6 @@
 // Simple mailer service using Express + Nodemailer
-// Exposes POST /api/send-shares to email Shamir shares to friends
+// Exposes POST /api/send-shares to email User shares to friends
 
-// Load environment variables from .env file
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') })
 
 const express = require('express')
@@ -14,9 +13,7 @@ const PORT = process.env.MAILER_PORT || 5050
 app.use(cors())
 app.use(express.json({ limit: '1mb' }))
 
-// Configure transporter via environment variables
-// Required env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-// Optional: SMTP_SECURE ("true" or "false"), MAIL_FROM (default: SMTP_USER)
+
 function createTransporter() {
   const {
     SMTP_HOST,
@@ -75,7 +72,7 @@ Instructions:
 - Keep this share private. Do not forward or post it.
 - When recovery is needed, you'll be asked to verify possession without revealing it.
 
-If you weren’t expecting this, you can ignore and delete this email.
+If you were not expecting this, you can ignore and delete this email.
 `
 
       const html = `
@@ -94,7 +91,7 @@ If you weren’t expecting this, you can ignore and delete this email.
             <li>Keep this share private. Do not forward or post it.</li>
             <li>When recovery is needed, you'll be asked to verify possession without revealing it.</li>
           </ul>
-          <p>If you weren’t expecting this, you can ignore and delete this email.</p>
+          <p>If you were not expecting this, you can ignore and delete this email.</p>
         </div>
       `
 

@@ -1,7 +1,4 @@
 // lib/aes.js
-// Small, clear AES-GCM helpers (Web Crypto). Intentionally conservative
-// API so existing code continues to work: exported functions are
-// deriveAesKeyFromPassword, encryptData, decryptData.
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
