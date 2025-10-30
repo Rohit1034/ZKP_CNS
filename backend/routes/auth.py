@@ -11,6 +11,8 @@ from datetime import  timedelta
 from flask import request
 from ecdsa import SECP256k1, VerifyingKey
 from binascii import unhexlify
+import time
+import json
 
 # in-memory cache fallback
 sessions = {}
@@ -228,6 +230,13 @@ def verify_proof():
     from binascii import unhexlify
 
     data = request.get_json()
+    # measure body size (safe: only logs size)
+    raw_request = request.get_data()
+    proof_payload_bytes_len = len(raw_request or b'')
+    try:
+       log_event("MEASURE_PROOF_SIZE", username=data.get("username"), details=f"payload_bytes={proof_payload_bytes_len}")
+    except Exception:
+        pass
     username = data.get("username")
     challenge_id = data.get("challenge_id")
     R_hex = data.get("R")  # client nonce (compressed)
@@ -275,12 +284,21 @@ def verify_proof():
         data_bytes = challenge_bytes + R_bytes + Y_bytes
         c_int = int.from_bytes(hashlib.sha256(data_bytes).digest(), "big") % SECP256k1.order
 
+        # start high-resolution timer before heavy verify work
+        verify_start = time.perf_counter()
         # EC Schnorr verification: s*G == R + c*Y
         G = SECP256k1.generator
         lhs = s_int * G
         rhs = R_vk.pubkey.point + c_int * Y_vk.pubkey.point
 
         if lhs == rhs:
+            # stop timer and log time spent in verification (ms)
+            verify_end = time.perf_counter()
+            verify_ms = (verify_end - verify_start) * 1000.0
+            try:
+                log_event("MEASURE_VERIFY_TIME", username=data.get("username"), details=f"verify_ms={verify_ms:.3f}")
+            except Exception:
+                pass
             # Mark challenge used
             challenge["used"] = True
             # Generate session token
