@@ -1,5 +1,6 @@
 # routes/auth.py
 from utils.logger import log_event
+import psutil
 
 import secrets
 from flask import Blueprint, request, jsonify
@@ -277,8 +278,15 @@ def verify_proof():
 
         # EC Schnorr verification: s*G == R + c*Y
         G = SECP256k1.generator
+        cpu_before = psutil.cpu_percent(interval=None)
         lhs = s_int * G
         rhs = R_vk.pubkey.point + c_int * Y_vk.pubkey.point
+        
+        cpu_after = psutil.cpu_percent(interval=0.4)
+        cpu_usage = cpu_after - cpu_before if cpu_after >= cpu_before else cpu_after
+        print(f"🔹 CPU usage during proof verification: {cpu_usage:.2f}%")
+
+
 
         if lhs == rhs:
             # Mark challenge used

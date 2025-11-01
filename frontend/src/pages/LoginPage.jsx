@@ -30,6 +30,7 @@ export default function Login({ onLoginSuccess }) {
 
     const { username, password } = formData;
     if (!username || !password) return setStatus('Please enter your credentials');
+    
 
     try {
       setStatus('Requesting challenge...');
@@ -88,7 +89,7 @@ if (!salt_kdf) return setStatus('No salt found. Please re-register.');
         const decryptedHex = await decryptBackup(rootKey, encrypted);
         x = BigInt('0x' + decryptedHex);
       }
-
+      const zkpStart = performance.now();
       const { R, s } = await generateProof(x, challenge.c);
 
       setStatus('Verifying proof...');
@@ -98,6 +99,12 @@ if (!salt_kdf) return setStatus('No salt found. Please re-register.');
         R,
         s,
       });
+      
+
+      const zkpEnd = performance.now();
+const zkpTime = (zkpEnd - zkpStart).toFixed(2);
+console.log(`🔐 ZKP (proof generation + verification) took ${zkpTime} ms (${(zkpTime / 1000).toFixed(2)} seconds)`);
+
 
       if (result.status === 'success') {
         setStatus('Login successful!');
@@ -111,6 +118,8 @@ if (!salt_kdf) return setStatus('No salt found. Please re-register.');
         }
 
         if (onLoginSuccess) onLoginSuccess();
+
+
         setTimeout(() => navigate('/dashboard'), 1000); 
       } else {
         setStatus(result.message || 'Login failed');
