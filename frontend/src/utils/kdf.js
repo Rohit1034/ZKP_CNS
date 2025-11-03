@@ -43,12 +43,8 @@ export async function deriveRootKey(password, saltBytes, kdf_params) {
   const passwordBytes = enc.encode(password);
 
   // Perform scrypt key derivation
-  const start = performance.now();
   const derivedKey = await scrypt(passwordBytes, saltUA, N, r, p, dkLen);
-  const end = performance.now();
-  console.log(`⏱️ Derivation time: ${(end - start).toFixed(2)} ms`);
 
-   
 
   return new Uint8Array(derivedKey);
 }
